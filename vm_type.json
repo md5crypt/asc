@@ -1,0 +1,14 @@
+[
+	["invalid",null],
+	["undefined",null],
+	["boolean","scalar"],
+	["integer","scalar"],
+	["float","scalar"],
+	["string","vector"],
+	["array","vector"],
+	["function","object"],
+	["namespace","object"],
+	["scalar",null],
+	["vector",null],
+	["object",null]
+]

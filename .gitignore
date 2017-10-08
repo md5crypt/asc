@@ -1,0 +1,10 @@
+# Ignore everything
+*
+# But descend into directories
+!*/
+# You can be specific with these rules
+!/*.json
+!/*.js
+!/*.jisonlex
+!/*.jison
+!.gitignore
