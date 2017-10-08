@@ -28,7 +28,13 @@ cwd = cwd.replace(/\\/g,'/').replace(/[\/]+$/,'');
 
 function Linker(root){
 	this.root = root;
-	this.code = [];
+	this.code = Array.prototype.concat.apply([],root.constructors.map(obj=>
+		(obj.id > 0xFFFF)?
+		[vm.opc16(vm.op.PUSH_VALUE,vm.type.FUNCTION,0),obj.id,vm.opc24(vm.op.CALL,0)]:
+		[vm.opc16(vm.op.PUSH_CONST,vm.type.FUNCTION,obj.id),vm.opc24(vm.op.CALL,0)]
+	));
+	this.code.push(vm.opc16(vm.op.PUSH_CONST,vm.type.BOOLEAN,1),vm.opc24(vm.op.RET,0));
+	this.offset = this.code.length;
 	this.internMap = new Map();
 	this.symbols = {
 		lines: [],
@@ -162,7 +168,7 @@ Linker.prototype.link = function(file){
 				lookback = [];
 				labels = new Map();
 				context = file.objects[vm.getValue24(opc)];
-				context.offset = this.offset;
+				context.address = this.offset;
 				break;
 			default:
 				this.pushOpc(opc);
@@ -174,7 +180,7 @@ Linker.prototype.intern = function(str){
 	var map = this.internMap;
 	if(map.has(str))
 		return map.get(str);
-	var s = map.size;
+	var s = map.size+this.root.index.length;
 	map.set(str,s);
 	return s;
 };
@@ -187,11 +193,9 @@ Linker.prototype.pushOpc = function(opc){
 	this.offset = this.code.length;
 };
 
-
 Linker.prototype.getOpc = function(offset){
 	return this.code[offset];
 };
-
 
 Linker.prototype.setOpc = function(offset,opc){
 	this.code[offset] = opc;
@@ -208,6 +212,42 @@ Linker.prototype.pushLocal = function(sp,str){
 	var s = map.size;
 	map.set(str,s);
 	this.symbols.locals.push(this.offset,sp,s);
+};
+
+Linker.prototype.buildImage = function(){
+	// intern all object names
+	this.root.index.forEach(o=>o.name = this.intern(o.name));
+	// 4 bytes for length + k 2 byte charackters + optional padding to keep word algin
+	var stringSectionSize = this.internMap.size*4;
+	this.internMap.forEach((v,k)=>stringSectionSize += (k.length+(k.length&1))*2);
+	// 4 words for header
+	var bin = new Uint32Array(stringSectionSize/4+this.code.length+this.root.index.length*4+4);
+	bin[0] = 0xB5006BB1; // magic word
+	bin[1] = this.code.length*4; // write code section size
+	bin[2] = this.root.index.length*4*4; // write object section size
+	bin[3] = stringSectionSize; //wrtie string section size
+	bin.set(this.code,4); // write code section
+	var pos = 4+this.code.length;
+	// write object section
+	this.root.index.forEach(o=>{
+		bin[pos++] = o.type;
+		bin[pos++] = o.name;
+		bin[pos++] = o.parent;
+		bin[pos++] = o.address || 0xFFFFFFFF;
+	});
+	// write string section
+	this.internMap.forEach((v,k)=>{
+		bin[pos++] = k.length*2;
+		var s = k.length-(k.length&1);
+		for(var i=0; i<s; i+=2){
+			bin[pos++] = k.charCodeAt(i) | (k.charCodeAt(i+1)<<16);
+		}
+		if(k.length&1)
+			bin[pos++] = k.charCodeAt(k.length-1);
+	});
+	if(pos != bin.length)
+		throw new Error('binery image creation failed');
+	return bin;
 };
 
 var data = glob.sync("*.json",{cwd:cwd+'/__output/object'}).map(file=>{
@@ -229,8 +269,10 @@ function createObjectTree(data){
 		constructors: [],
 		id: 0,
 	};
+	var objects = [root];
 	var id = 1;
 	data.forEach(file => {
+		console.log(`\t${file.path.slice(0,-5)}.as`);
 		var base = root;
 		if(file.base){
 			file.base.split('.').forEach(name=>{
@@ -243,9 +285,9 @@ function createObjectTree(data){
 						parent:base,
 						children:new Map(),
 						file:null,
-						constructors:[],
 						id: id++
 					};
+					objects.push(ns);
 					base.children.set(name,ns);
 					base = ns;
 				}
@@ -256,14 +298,10 @@ function createObjectTree(data){
 			o.name = file.strings[o.name];
 			o.children = new Map();
 			o.file = file.path;
-			o.constructors = [];
 			o.id = id++;
-			if(o.parent===null){
-				base.constructors.push(o);
+			objects.push(o);
+			if(o.parent===null)
 				localroot = o;
-			}else if(!vm.isType(o.type,vm.type.FUNCTION)){ // todo: change to type.CALLABLE (?)
-				o.constructors.push(o);
-			}
 		});
 		file.objects.forEach(o=>{
 			o.parent = o.parent===null?base:file.objects[o.parent];
@@ -276,18 +314,21 @@ function createObjectTree(data){
 				o.parent.children.set(o.name,o);
 			}
 		});
-		base.constructors.push(localroot);
+		root.constructors.push(localroot);
 	});
+	root.index = objects;
 	return root;
 }
-
+console.log("building object tree...");
 var linker = new Linker(createObjectTree(data));
-data.forEach(file => {
-	//console.log(Array.from(file.code).map(opc=>vm.getOpName(vm.getOp(opc))));
+console.log("linking code...");
+data.forEach(file =>{
+	console.log(`\t${file.path.slice(0,-5)}.as`);
 	linker.link(file);
 });
-var code = new Uint32Array(linker.code);
-fs.writeFileSync('output.bin',Buffer(code.buffer));
+console.log("genarating output");
+fs.writeFileSync(cwd+'/__output/image.bin',Buffer.from(linker.buildImage().buffer));
+console.log("done.");
 //linker.writeMemory(cwd+'memory.bin');
 //ćlinker.writeSymbols(cwd+'symbols.json');
 //console.log(util.inspect(root, false, null));

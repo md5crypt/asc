@@ -44,8 +44,10 @@ parser.error = function(tok,msg){
 };
 
 parser.wrapblock = function(block){
-	block.unshift(vm.opc24(vm.op.BLKOPEN,0));
-	block.push(vm.opc24(vm.op.BLKCLOSE,0));
+	if(block && block.length > 0){
+		block.unshift(vm.opc24(vm.op.BLKOPEN,0));
+		block.push(vm.opc24(vm.op.BLKCLOSE,0));
+	}
 	return block;
 };
 
@@ -55,6 +57,13 @@ parser.atom = function(str){
 	if(str === 'true')
 		return [vm.opc16(vm.op.PUSH_VALUE,vm.type.BOOLEAN,0),1];
 	return [vm.opc16(vm.op.PUSH_VALUE,vm.type.UNDEFINED,0),0];
+};
+
+parser.type = function(tok,type){
+	var _type = type.toUpperCase();
+	if(_type in vm.type)
+		return vm.type[_type];
+	this.error(tok,`undefined type '${type}'`);
 };
 
 parser.number = function(tok,str){
@@ -212,17 +221,28 @@ parser.c_set = (tok,name,value) => (value.push(vm.opc24(vm.op.SET,0),name,vm.opc
 
 parser.c_mset = (tok,object,key,value) => Array.prototype.concat(value,object,key,[vm.opc24(vm.op.SET_MEMBER,0),vm.opc24(vm.op.LINE,tok.first_line)]);
 
+parser.registerobject = function(tok,name,type){
+	if(name.indexOf('.')>=0)
+		this.error(tok,`'${name}' contains a '.' character and thus can not be used as ${vm.getTypeName(type)} name`);
+	this.objects.push({
+		name:intern(this.strings,name),
+		type:type,
+		parent:null,
+	});
+	return [vm.opc24(vm.op.OBJECT,this.objects.length-1)];
+};
+
 parser.addfunc = function(tok,name,body,args,type){
+		if(!body || body.length==0)
+		return this.registerobject(tok,name,type);
 	var head = [vm.opc24(vm.op.FUNCTION,this.objects.length)];
 	var tail = [];
 	var symbols = new Map();
 	args.forEach((arg,i)=>{
-		var a = arg.split('::');
-		head.push(vm.opc24(vm.op.LOCAL,(i-args.length+1)&0xFFFFFF),intern(this.strings,a[0]));
-		if(a[1]){
-			head.push(vm.opc16(vm.op.ASSERT_TYPE,vm.type[a[1].toUpperCase()],(i-args.length+1)&0xFFFF));
-		}
-		symbols.set(a[0],[(i-args.length+1)&0xFFFFFF]);
+		head.push(vm.opc24(vm.op.LOCAL,(i-args.length+1)&0xFFFFFF),intern(this.strings,arg.name));
+		if(arg.type !== null)
+			head.push(vm.opc16(vm.op.ASSERT_TYPE,arg.type,(i-args.length+1)&0xFFFF));
+		symbols.set(arg.name,[(i-args.length+1)&0xFFFFFF]);
 	});
 	head.push(vm.opc24(vm.op.ASSERT_ARRITY_EQ,args.length),vm.opc24(vm.op.LINE,tok.first_line));
 	var localcnt = 0;
@@ -326,12 +346,7 @@ parser.addfunc = function(tok,name,body,args,type){
 		}
 	}
 	this.code.push(head);
-	this.objects.push({
-		name:intern(this.strings,name),
-		type:type,
-		parent:null,
-	});
-	return [vm.opc24(vm.op.OBJECT,this.objects.length-1)];
+	return this.registerobject(tok,name,type);
 };
 
 parser.func = function(tok,name,args,body){
@@ -345,12 +360,26 @@ parser.func = function(tok,name,args,body){
 
 parser.namespace = function(tok,name,body){
 	var o = this.addfunc(tok,name,body,[],vm.type.NAMESPACE);
-	o.push(
-		vm.opc16(vm.op.PUSH_VALUE,vm.type.NAMESPACE,0),this.objects.length-1,
-		vm.opc24(vm.op.DUP,0),vm.opc24(vm.op.SET,0),'self.'+name,
-		vm.opc24(vm.op.CALL_UNSAFE,0),vm.opc24(vm.op.DEALLOC,1)
-	);
+	o.push(vm.opc16(vm.op.PUSH_VALUE,vm.type.NAMESPACE,0),this.objects.length-1);
+	if(body && body.length > 0){
+		o.push(vm.opc24(vm.op.DUP,0),vm.opc24(vm.op.SET,0),'self.'+name);
+		o.push(vm.opc24(vm.op.CALL_UNSAFE,0),vm.opc24(vm.op.DEALLOC,1));
+	}else{
+		o.push(vm.opc24(vm.op.SET,0),'self.'+name);
+	}
 	return o;
+};
+
+parser.extern = function(tok,list){
+	list = list.map((name)=>{
+		var o = this.registerobject(tok,name,vm.type.EXTERN);
+		o.push(
+			vm.opc16(vm.op.PUSH_VALUE,vm.type.EXTERN,0),this.objects.length-1,
+			vm.opc24(vm.op.SET,0),'self.'+name
+		);
+		return o;
+	});
+	return Array.prototype.concat.apply([],list);
 };
 
 };

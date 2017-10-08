@@ -50,19 +50,19 @@ for(var i=0; i<code.length; i++){
 			console.log(`${vm.getOpName(vm.getOp(opc))} ${strings[vm.getValue24(opc)]}`);
 			break;
 		case vm.op.PUSH_VALUE:
-			console.log(`PUSH ${code[++i]}::${vm.getTypeName(vm.getType(opc))}`);
+			console.log(`push ${code[++i]}::${vm.getTypeName(vm.getType(opc))}`);
 			break;
 		case vm.op.PUSH_CONST:
-			console.log(`PUSH ${vm.getValue16(opc)}::${vm.getTypeName(vm.getType(opc))}`);
+			console.log(`push ${vm.getValue16(opc)}::${vm.getTypeName(vm.getType(opc))}`);
 			break;
 		case vm.op.LOCAL:
-			console.log(`LOCAL ${strings[code[++i]]} ${vm.getValue24S(opc)}`);
+			console.log(`local ${strings[code[++i]]} ${vm.getValue24S(opc)}`);
 			break;
 		case vm.op.CHKTYPE:
-			console.log(`CHKTYPE ${vm.getTypeName(vm.getType(opc))}`);
+			console.log(`chktype ${vm.getTypeName(vm.getType(opc))}`);
 			break;
 		case vm.op.ASSERT_TYPE:
-			console.log(`ASSERT_TYPE ${vm.getValue16S(opc)}, ${vm.getTypeName(vm.getType(opc))}`);
+			console.log(`assert_type ${vm.getValue16S(opc)}, ${vm.getTypeName(vm.getType(opc))}`);
 			break;
 		default:
 			console.log(vm.getOpName(vm.getOp(opc)));

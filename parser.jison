@@ -33,13 +33,23 @@ object:
 	FUNCTION VARNAME arguments fblock
 		{ $$ = yy.parser.func(@1,$2,$3,$4); } |
 	NAMESPACE VARNAME nullblock
-		{ $$ = yy.parser.namespace(@1,$2,$3); }
+		{ $$ = yy.parser.namespace(@1,$2,$3); } |
+	EXTERN externlist NL
+		{ $$ = yy.parser.extern(@1,$2); }
+;
+
+externlist:
+	externlist VARNAME
+		{ $$ = $1; $$.push($2); } |
+	VARNAME
+		{ $$ = [$1]; }
 ;
 
 argument:
-	VARNAME |
+	VARNAME
+		{ $$ = {name:$1,type:null}; } |
 	VARNAME TYPE
-		{ $$ = $1+$2; }
+		{ $$ = {name:$1,type:yy.parser.type(@1,$2)}; }
 ;
 
 arguments:

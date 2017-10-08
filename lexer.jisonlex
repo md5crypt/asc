@@ -124,8 +124,8 @@ not						{ return '!'; }
 }
 native					{ this.jsbodycnt = 1; this.jsbody = ''; return yytext.toUpperCase(); }
 '{'						{ if(this.jsbodycnt > 0){ this.begin('jsbody'); } else { this.braces++; return yytext; } }
-if|elseif|else|while|function|local|set|unset|return|break|continue|pattern|throw|namespace|dispatcher|extends|extend|yield|on|dialog|option|combine|location|object { return yytext.toUpperCase(); }
-\:\:[a-z]+				{ return 'TYPE'; }
+if|elseif|else|while|function|local|set|unset|return|break|continue|pattern|throw|namespace|extern|dispatcher|extends|extend|yield|on|dialog|option|combine|location|object { return yytext.toUpperCase(); }
+\:\:[a-z]+				{ yytext = yytext.slice(2); return 'TYPE'; }
 true|false|undefined	{ return 'ATOM'; }
 [`.]?{ID}(?:[.]{ID})*	{ if(yytext[0]=='`') yytext=yytext.slice(1); return 'VARNAME'; }
 [0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?	{ return 'NUMBER'; }

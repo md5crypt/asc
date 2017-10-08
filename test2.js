@@ -34,16 +34,16 @@ for(var i=0; i<code.length; i++){
 	}
 	switch(vm.getOp(opc)){
 		case vm.op.PUSH_VALUE:
-			console.log(`PUSH_VALUE ${code[++i]}::${vm.getTypeName(vm.getType(opc))}`);
+			console.log(`push_value ${code[++i]}::${vm.getTypeName(vm.getType(opc))}`);
 			break;
 		case vm.op.PUSH_CONST:
-			console.log(`PUSH_CONST ${vm.getValue16S(opc)}::${vm.getTypeName(vm.getType(opc))}`);
+			console.log(`push_const ${vm.getValue16S(opc)}::${vm.getTypeName(vm.getType(opc))}`);
 			break;
 		case vm.op.CHKTYPE:
-			console.log(`CHKTYPE ${vm.getTypeName(vm.getType(opc))}`);
+			console.log(`chk_type ${vm.getTypeName(vm.getType(opc))}`);
 			break;
 		case vm.op.ASSERT_TYPE:
-			console.log(`ASSERT_TYPE ${vm.getValue16S(opc)}, ${vm.getTypeName(vm.getType(opc))}`);
+			console.log(`assert_type ${vm.getValue16S(opc)}, ${vm.getTypeName(vm.getType(opc))}`);
 			break;
 		default:
 			console.log(vm.getOpName(vm.getOp(opc)));
