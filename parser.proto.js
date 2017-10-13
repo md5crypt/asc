@@ -370,16 +370,14 @@ parser.namespace = function(tok,name,body){
 	return o;
 };
 
-parser.extern = function(tok,list){
-	list = list.map((name)=>{
-		var o = this.registerobject(tok,name,vm.type.EXTERN);
-		o.push(
-			vm.opc16(vm.op.PUSH_VALUE,vm.type.EXTERN,0),this.objects.length-1,
-			vm.opc24(vm.op.SET,0),'self.'+name
-		);
-		return o;
-	});
-	return Array.prototype.concat.apply([],list);
+parser.extern = function(tok,name,target){
+	var o = this.registerobject(tok,name,vm.type.EXTERN);
+	this.objects[this.objects.length-1].address = intern(this.strings,target),
+	o.push(
+		vm.opc16(vm.op.PUSH_VALUE,vm.type.EXTERN,0),this.objects.length-1,
+		vm.opc24(vm.op.SET,0),'self.'+name
+	);
+	return o;
 };
 
 };

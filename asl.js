@@ -113,6 +113,8 @@ Linker.prototype.link = function(file){
 					value = this.intern(file.strings[value]);
 				else if(vm.isType(type,vm.type.OBJECT))
 					value = file.objects[value].id;
+				//else if(type == vm.type.INTEGER && value >= 0xFFFF8000)
+				//	value &= 0xFFFF;
 				if(value > 0xFFFF){
 					this.pushOpc(opc);
 					this.pushOpc(value);
@@ -216,7 +218,11 @@ Linker.prototype.pushLocal = function(sp,str){
 
 Linker.prototype.buildImage = function(){
 	// intern all object names
-	this.root.index.forEach(o=>o.name = this.intern(o.name));
+	this.root.index.forEach(o=>{
+		o.name = this.intern(o.name);
+		if(o.type == vm.type.EXTERN)
+			o.address = this.intern(o.address);
+	});
 	// 4 bytes for length + k 2 byte charackters + optional padding to keep word algin
 	var stringSectionSize = this.internMap.size*4;
 	this.internMap.forEach((v,k)=>stringSectionSize += (k.length+(k.length&1))*2);
@@ -232,7 +238,7 @@ Linker.prototype.buildImage = function(){
 	this.root.index.forEach(o=>{
 		bin[pos++] = o.type;
 		bin[pos++] = o.name;
-		bin[pos++] = o.parent;
+		bin[pos++] = o.parent?o.parent.id:0xFFFFFFFF;
 		bin[pos++] = o.address || 0xFFFFFFFF;
 	});
 	// write string section
@@ -296,6 +302,8 @@ function createObjectTree(data){
 		var localroot = null;
 		file.objects.forEach(o=>{
 			o.name = file.strings[o.name];
+			if(o.type == vm.type.EXTERN)
+				o.address = file.strings[o.address];
 			o.children = new Map();
 			o.file = file.path;
 			o.id = id++;
@@ -329,6 +337,3 @@ data.forEach(file =>{
 console.log("genarating output");
 fs.writeFileSync(cwd+'/__output/image.bin',Buffer.from(linker.buildImage().buffer));
 console.log("done.");
-//linker.writeMemory(cwd+'memory.bin');
-//ćlinker.writeSymbols(cwd+'symbols.json');
-//console.log(util.inspect(root, false, null));

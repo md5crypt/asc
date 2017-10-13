@@ -9,6 +9,7 @@
 	["callable","object"],
 	["function","callable"],
 	["extern","callable"],
+	["native","extern"],
 	["namespace","object"],
 	["scalar",null],
 	["vector",null],
