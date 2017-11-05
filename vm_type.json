@@ -1,9 +1,9 @@
 [
 	["invalid",null],
 	["undefined",null],
-	["boolean","scalar"],
-	["integer","scalar"],
-	["float","scalar"],
+	["boolean","numeric"],
+	["integer","numeric"],
+	["float","numeric"],
 	["string","vector"],
 	["array","vector"],
 	["callable","object"],
@@ -11,7 +11,7 @@
 	["extern","callable"],
 	["native","extern"],
 	["namespace","object"],
-	["scalar",null],
+	["numeric",null],
 	["vector",null],
 	["object",null]
 ]

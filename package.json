@@ -1,0 +1,31 @@
+{
+  "name": "asc",
+  "version": "1.0.0",
+  "description": "adventurescript compiler and linker",
+  "main": "build/asc.js",
+  "dependencies": {
+    "commander": "^2.11.0",
+    "fs-extra": "^4.0.1",
+    "glob": "^7.1.2",
+    "source-map-support": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.11.0",
+    "@types/fs-extra": "^4.0.3",
+    "@types/glob": "^5.0.33",
+    "@types/node": "^8.0.47",
+    "jison": "^0.4.17",
+    "tslint": "^5.8.0",
+    "typescript": "^2.6.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prebuild:ts": "node scripts/codegen",
+    "build:ts": "tsc",
+    "build:parser": "jison src/parser.jison src/parser.jisonlex -o build/parser.js",
+    "build": "npm run build:ts & npm run build:parser",
+    "watch": "tsc --watch"
+  },
+  "author": "",
+  "license": "MIT"
+}

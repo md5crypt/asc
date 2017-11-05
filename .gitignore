@@ -1,10 +1,6 @@
-# Ignore everything
-*
-# But descend into directories
-!*/
-# You can be specific with these rules
-!/*.json
-!/*.js
-!/*.jisonlex
-!/*.jison
-!.gitignore
+__output
+build
+node_modules
+.vs
+package-lock.json
+/**/*.as

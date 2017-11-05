@@ -103,12 +103,12 @@ ID [_A-Za-z][\w]*
 [ \f\t\v]\-(?![ \f\t\v]) { return '--'; }
 [ \f\r\t\v]+			/* eat whitespace */
 '#='					{ this.comment = 1; this.begin('comment'); }
-\#(?!\=)(?:[^\n]*\\\n)*[^\n]* { yy.parser.comment(yytext); }
+\#(?!\=)(?:[^\n]*\\\n)*[^\n]* { /* yy.parser.comment(yytext); */ }
 \n						{ if(this.braces==0) {this.begin('indent'); this.indent.cnt = 0;} }
 <<EOF>>					{ this.begin('indent'); this.unput(' '); }
 '"'						{ this.begin('string'); return 'STRING_START'; }
 ['](?:\\.|[^\\'])*[']	{ yytext=yytext.slice(1,-1).replace(/\\(['\\])/g,'$1'); return 'STRING'; }
-'||'|'&&'|'==='|'=='|'!=='|'!='|'<='|'>='|'>>'|'<<'|'=' { return yytext; }
+'||'|'&&'|'==='|'=='|'!=='|'!='|'<='|'>='|'>>'|'<<'|'='|'...' { return yytext; }
 and						{ return '&&'; }
 or						{ return '||'; }
 not						{ return '!'; }
@@ -125,7 +125,7 @@ not						{ return '!'; }
 native					{ this.jsbodycnt = 1; this.jsbody = ''; return yytext.toUpperCase(); }
 '{'						{ if(this.jsbodycnt > 0){ this.begin('jsbody'); } else { this.braces++; return yytext; } }
 if|elseif|else|while|function|local|set|unset|return|break|continue|pattern|throw|namespace|extern|dispatcher|extends|extend|yield|on|dialog|option|combine|location|object { return yytext.toUpperCase(); }
-\:\:[a-z]+				{ yytext = yytext.slice(2); return 'TYPE'; }
+\:[a-z]+				{ yytext = yytext.slice(1); return 'TYPE'; }
 true|false|undefined	{ return 'ATOM'; }
 [`.]?{ID}(?:[.]{ID})*	{ if(yytext[0]=='`') yytext=yytext.slice(1); return 'VARNAME'; }
 [0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?	{ return 'NUMBER'; }
