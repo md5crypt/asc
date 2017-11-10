@@ -64,11 +64,11 @@ abstract class ProgramData{
 		for(let i=0; i<code.length; i++){
 			const offset = i.toString(16).toUpperCase().padStart(4,'0')
 			if(functions.length && i >= <number>functions[0].address){
-				console.log(`\n${this.names[this.objects.indexOf(functions[0])]}`)
+				console.log(`\nfunction ${this.names[this.objects.indexOf(functions[0])]}`)
 				functions.shift()
 			}
 			if(labels.length && i >= labels[0]){
-				console.log(`label ${labelMap.get(i)}:`)
+				console.log(`[label#${labelMap.get(i)}]`)
 				labels.shift()
 			}
 			switch(opc.set(code[i]).op){
@@ -84,10 +84,12 @@ abstract class ProgramData{
 				case Op.ASSERT_ARRITY_GE:
 				case Op.SET_ARRITY_EQ:
 				case Op.SET_ARRITY_GE:
+					console.log(`${offset}: ${opc.getOpName()} ${opc.u24}`)
+					break
 				case Op.JMP_L:
 				case Op.JE_L:
 				case Op.JNE_L:
-					console.log(`${offset}: ${opc.getOpName()} ${opc.u24}`)
+					console.log(`${offset}: ${opc.getOpName()} label#${opc.u24}`)
 					break
 				case Op.PUSH_VALUE:
 					console.log(`${offset}: ${opc.getOpName()} ${this.valueOf(code[++i],opc.type)}`)
@@ -109,7 +111,7 @@ abstract class ProgramData{
 				case Op.JMP:
 				case Op.JE:
 				case Op.JNE:
-					console.log(`${offset}: ${opc.getOpName()} ${opc.s24} (label ${labelMap.get(i+opc.s24)})`)
+					console.log(`${offset}: ${opc.getOpName()} label#${labelMap.get(i+opc.s24)}`)
 					break
 				case Op.PUSH:
 				case Op.SET:
@@ -119,7 +121,7 @@ abstract class ProgramData{
 					console.log(`\n${opc.getOpName()} ${this.getObjectName(opc.u24)}`)
 					break
 				case Op.LABEL:
-					console.log(`${opc.getOpName()} ${opc.s24}:`)
+					console.log(`[${opc.getOpName()}#${opc.s24}]`)
 					break
 				case Op.LOCAL:
 					console.log(`${offset}: *${opc.getOpName()} ${this.getString(code[++i])}, ${opc.s24}`)
