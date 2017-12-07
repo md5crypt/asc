@@ -4,4 +4,3 @@ node_modules
 .vs
 package-lock.json
 src/vmConstants.ts
-/**/*.as
