@@ -38,7 +38,6 @@
 	"deprecation": true,
 	"eofline": true,
 	"indent": [true, "tabs"],
-	"linebreak-style": [true, "LF"],
 	"no-duplicate-imports": true,
 	"prefer-const": true,
 	"encoding": true,

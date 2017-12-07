@@ -11,29 +11,29 @@ op.push(
 	"continue","break","blkopen","blkclose"
 );
 
-module.exports = ()=>{
-	const map = {};
-	for(var i=0; i<types.length; i++)
-		map[types[i][0]] = i;
+types.push(['import','object'])
 
-	const n = types.length;
-	const matrix = new Uint8Array(n*n);
+const map = {};
+for(var i=0; i<types.length; i++)
+	map[types[i][0]] = i;
 
-	for(let k=0; k<n; k++){ //haha, I'm lazy
-		for(let i=0; i<n; i++){
-			matrix[i+i*n] = 1;
-			if(!types[i][1])
-				continue;
-			const b = map[types[i][1]];
-			for(var j=0; j<n; j++)
-				matrix[j+i*n] = matrix[j+b*n];
-			matrix[i+i*n] = 1;
-		}
+const n = types.length;
+const matrix = new Uint8Array(n*n);
+
+for(let k=0; k<n; k++){ //haha, I'm lazy
+	for(let i=0; i<n; i++){
+		matrix[i+i*n] = 1;
+		if(!types[i][1])
+			continue;
+		const b = map[types[i][1]];
+		for(var j=0; j<n; j++)
+			matrix[j+i*n] = matrix[j+b*n];
+		matrix[i+i*n] = 1;
 	}
-	console.log("codegen.js: creating vmConstants.ts");
-	fs.writeFileSync('src/vmConstants.ts',`export const enum Type {\n\t${types.map(a=>a[0].toUpperCase()).join(',\n\t')}\n}
-	export const enum Op {\n\t${op.map(a=>a.toUpperCase()).join(',\n\t')}\n}
-	export const typeLut = ["${types.map(a=>a[0]).join('","')}"]
-	export const opLut = ["${op.join('","')}"]
-	export const typeMatrix = [${Array.from(matrix).join(',')}]\n`);
-};
+}
+console.log("codegen.js: creating vmConstants.ts");
+fs.writeFileSync('src/vmConstants.ts',`export const enum Type {\n\t${types.map(a=>a[0].toUpperCase()).join(',\n\t')}\n}
+export const enum Op {\n\t${op.map(a=>a.toUpperCase()).join(',\n\t')}\n}
+export const typeLut = ["${types.map(a=>a[0]).join('","')}"]
+export const opLut = ["${op.join('","')}"]
+export const typeMatrix = [${Array.from(matrix).join(',')}]\n`);

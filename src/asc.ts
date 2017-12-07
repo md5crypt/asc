@@ -35,7 +35,7 @@ if(program.directory){
 
 const objectpath = cwd+'/__output/object/'
 
-if(program.rebuild){
+if(program.purge){
 	console.log('purging output cache\n')
 	fs.emptyDirSync(objectpath)
 }
@@ -147,6 +147,10 @@ function compile(cwd:string){
 		}
 	}
 	console.log(`${modified} modified ${errors} failed ${files.length-modified-errors} unchanged`)
+	if(errors > 0){
+		console.log()
+		process.exit(1)
+	}
 }
 
 function link(cwd:string){

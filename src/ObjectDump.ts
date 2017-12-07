@@ -6,8 +6,10 @@ abstract class ProgramData{
 	protected objects:ObjectMetadata[]
 	protected strings:string[]
 	protected names:string[]
-	constructor(code: Uint32Array,objects:ObjectMetadata[],strings:string[]){
+	protected mmidOffset:number
+	constructor(code: Uint32Array,objects:ObjectMetadata[],strings:string[],mmidOffset?:number){
 		this.code = code
+		this.mmidOffset = mmidOffset || 0
 		this.objects = objects
 		this.strings = strings
 		const names:string[] = []
@@ -47,7 +49,7 @@ abstract class ProgramData{
 	private printObjects(){
 		for(let i=0; i<this.objects.length; i++){
 			const node = this.objects[i]
-			console.log(`def object ${this.names[i]}:${OpCode.getTypeName(node.type)} `+((node.parent&&node.parent!=0xFFFFFFFF)?`child of ${this.getObjectName(node.parent)}`:'as root'))
+			console.log(`def object[${i+this.mmidOffset}] ${this.names[i]}:${OpCode.getTypeName(node.type)} `+((node.parent&&node.parent!=0xFFFFFFFF)?`child of ${this.getObjectName(node.parent)}`:'as root'))
 		}
 		if(this.objects.length > 0)
 			console.log()
@@ -82,8 +84,10 @@ abstract class ProgramData{
 				case Op.CALL_UNSAFE:
 				case Op.ASSERT_ARRITY_EQ:
 				case Op.ASSERT_ARRITY_GE:
-				case Op.SET_ARRITY_EQ:
-				case Op.SET_ARRITY_GE:
+				case Op.SET_ARRITY:
+				case Op.PUSH_ARGUMENT_COUNT:
+				case Op.PUSH_ARGUMENT_ARRAY:
+				case Op.DUP:
 					console.log(`${offset}: ${opc.getOpName()} ${opc.u24}`)
 					break
 				case Op.JMP_L:
@@ -101,7 +105,7 @@ abstract class ProgramData{
 				case Op.SET_MEMBER_CONST:
 					console.log(`${offset}: ${opc.getOpName()} '${this.getString(opc.u24)}'`)
 					break
-				case Op.CHKTYPE:
+				case Op.ISTYPE:
 					console.log(`${offset}: ${opc.getOpName()} ${opc.getTypeName()}`)
 					break
 				case Op.ASSERT_TYPE:
@@ -242,7 +246,8 @@ export class ImageFile extends ProgramData{
 		const codeSectionSize = u32[1]
 		const objectSectionSize = u32[2]
 		const stringSectionSize = u32[3]
-		let offset = 16
+		const mmidOffset = u32[4]
+		let offset = 20
 		const code = new Uint32Array(data.buffer,data.byteOffset+offset,codeSectionSize>>2)
 		offset += codeSectionSize
 		const objects = readObjects(data.slice(offset,offset+objectSectionSize))
@@ -250,22 +255,23 @@ export class ImageFile extends ProgramData{
 		const strings = readStrings(data.slice(offset,offset+stringSectionSize))
 		offset += stringSectionSize
 		const externs = readExterns(data.slice(offset))
-		super(code,objects,strings)
+		super(code,objects,strings,mmidOffset)
 		this.externs = externs
 	}
 	getObject(id:number){
-		if(id <= this.objects.length)
-			return this.objects[id-1]
+		if(id-this.mmidOffset < this.objects.length)
+			return this.objects[id-this.mmidOffset]
 		throw new Error('object oob')
 	}
 	getObjectName(id:number){
-		if(id <= this.names.length)
-			return this.names[id-1]
+		if(id-this.mmidOffset < this.names.length)
+			return this.names[id-this.mmidOffset]
 		throw new Error('object oob')
 	}
 	getString(id:number){
-		if(id > this.objects.length && id <= this.objects.length+this.strings.length)
-			return this.strings[id-this.objects.length-1]
+		const p = id-this.mmidOffset
+		if(p >= this.objects.length && p < this.objects.length+this.strings.length)
+			return this.strings[p-this.objects.length]
 		throw new Error('string oob')
 	}
 	getExtern(id:number){

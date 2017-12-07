@@ -26,6 +26,7 @@
     "build": "npm run build:ts & npm run build:parser",
     "watch": "tsc --watch"
   },
+  "repository": "bitbucket:md5crypt/asc",
   "author": "",
   "license": "MIT"
 }

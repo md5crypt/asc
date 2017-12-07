@@ -2,6 +2,8 @@ import {OpCode,Type,Op} from './OpCode'
 import {ObjectMetadata} from './Compiler'
 import StringStorage from './StringStorage'
 
+const mmidOffset = 128
+
 export interface CompiledFile{
 	code: Uint32Array
 	base: string
@@ -18,10 +20,11 @@ interface ObjectTreeNode{
 	file?: CompiledFile
 	parent?: ObjectTreeNode
 	address?: number
+	proxy?: ObjectTreeNode
 }
 
 const magicDWord = 0xB5006BB1
-const headerSize = 16
+const headerSize = 20
 const objectSize = 16
 const opCodeSize = 4
 
@@ -35,6 +38,7 @@ function writeHeader(buffer:Uint8Array, codeSectionSize:number, objectSectionSiz
 	u32[1] = codeSectionSize
 	u32[2] = objectSectionSize
 	u32[3] = stringSectionSize
+	u32[4] = mmidOffset
 	return headerSize
 }
 
@@ -71,11 +75,11 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 	root:ObjectTreeNode
 	constructors: ObjectTreeNode[]
 	private nodes:ObjectTreeNode[]
-	private nodesFileMap:Map<string,number>
+	private nodesFileMap:Map<string,ObjectTreeNode[]>
 	private externs = new StringStorage()
 	constructor(data:CompiledFile[]){
 		this.root = {
-			id: 1,
+			id: mmidOffset,
 			name:'root',
 			type:Type.NAMESPACE,
 			children:new Map(),
@@ -83,8 +87,10 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 		this.constructors = []
 		this.nodes = [this.root]
 		this.nodesFileMap = new Map()
-		let id = 2
+		let id = mmidOffset+1
+		const imports:ObjectTreeNode[] = []
 		for(const file of data){
+			const lut = []
 			let base:ObjectTreeNode = this.root
 			if(file.base){
 				for(const name of file.base.split('.')){
@@ -106,15 +112,18 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 				}
 			}
 			let localroot:(ObjectTreeNode|undefined)
-			const offset = id-1
-			this.nodesFileMap.set(file.path,offset)
 			for(const metadata of file.objects){
 				const o:ObjectTreeNode = {
 					name: file.strings[metadata.name],
 					type: metadata.type,
 					children: new Map(),
-					id: id++
+					id: metadata.type==Type.IMPORT?0:id++
 				}
+				lut.push(o)
+				if(metadata.type != Type.IMPORT)
+					this.nodes.push(o)
+				else
+					imports.push(o)
 				if(metadata.type == Type.EXTERN){
 					if(typeof metadata.address == 'undefined')
 						throw new Error('invalid extern')
@@ -122,27 +131,30 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 				}
 				if(typeof metadata.parent == 'undefined')
 					localroot = o
-				this.nodes.push(o)
 				if(!o.parent)
 					localroot = o
 			}
 			for(let i=0; i<file.objects.length; i++){
 				const metadata = file.objects[i]
-				const o = this.nodes[offset+i]
-				o.parent = (typeof metadata.parent == 'undefined')?base:this.nodes[offset+metadata.parent]
+				const o = lut[i]
+				o.parent = (typeof metadata.parent == 'undefined')?base:lut[metadata.parent]
 				if(o.parent == localroot)
 					o.parent = base
 				if(o != localroot){
-					if(o.parent.children.has(o.name))
-						throw new Error(`link error, object '${o.name}' redefined`)
-					o.parent.children.set(o.name,o)
+					const name = o.type == Type.IMPORT ? o.name.split('.').pop()! : o.name
+					if(o.parent.children.has(name))
+						throw new Error(`link error, object '${name}' redefined`)
+					o.parent.children.set(name,o)
 				}
 			}
 			if(!localroot)
 				throw new Error('local root object not found')
 			localroot.name = `${file.path.slice(0,-5)}@main`
+			localroot.proxy = base
 			this.constructors.push(localroot)
+			this.nodesFileMap.set(file.path,lut)
 		}
+		this.evaulateImports(imports)
 	}
 	[Symbol.iterator](){
 		return this.nodes[Symbol.iterator]()
@@ -151,16 +163,62 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 		return this.nodes.length
 	}
 	get(id:number){
-		return this.nodes[id-1]
+		return this.nodes[id-mmidOffset]
 	}
 	getExterns(){
 		return this.externs
 	}
-	getByMetadataId(file:string, id:number){
-		const offset = this.nodesFileMap.get(file)
-		if(typeof offset == 'undefined')
-			throw new Error()
-		return this.nodes[offset+id]
+	getFileLut(file:CompiledFile){
+		return this.nodesFileMap.get(file.path)
+	}
+	resolvePathAbs(path:string[], context:ObjectTreeNode){
+		let ctx = context
+		while(true){
+			if(path[0] == 'parent'){
+				// to do: better error msg
+				if(!ctx.parent)
+					throw new Error('root has no parent')
+				ctx = ctx.parent
+				path.shift()
+			}else{
+				const next = ctx.children.get(path[0])
+				if(!next)
+					break
+				ctx = next
+				path.shift()
+			}
+		}
+		if(ctx.type == Type.IMPORT)
+			ctx = ctx.proxy!
+		return {ctx,path}
+	}
+	resolvePath(path:string[], context:ObjectTreeNode){
+		switch(path[0]){
+			//case '': return this.resolvePathAbs(path.slice(1))
+			case 'root': return this.resolvePathAbs(path.slice(1),this.root)
+			case 'self': return this.resolvePathAbs(path.slice(1),context)
+			case 'parent': return this.resolvePathAbs(path.slice(0),context)
+		}
+		let ctx:ObjectTreeNode|undefined = context
+		while(ctx){
+			const next = ctx.children.get(path[0])
+			if(next)
+				return this.resolvePathAbs(path.slice(1),next)
+			ctx = ctx.parent
+		}
+		// to do: better error msg
+		throw new Error(`can not resolve path '${path.join('.')}'`)
+	}
+	private evaulateImports(imports:ObjectTreeNode[]){
+		for(const o of imports){
+			const src = this.resolvePath(o.name.split('.'),o.parent || this.root)
+			if(src.path.length != 0)
+				throw new Error(`could not resolve import '${o.name}'`)
+			o.id = src.ctx.id
+			o.children = src.ctx.children
+			o.name = src.ctx.name
+			o.proxy = src.ctx
+		}
 	}
 }
 
@@ -235,7 +293,6 @@ class StringSection{
 	}
 }
 
-
 class Symbols{
 	private lines:number[] = []
 	private locals:number[] = []
@@ -262,37 +319,39 @@ export class Linker{
 	private symbols = new Symbols()
 	constructor(data:CompiledFile[]){
 		this.tree = new ObjectTree(data)
-		this.stringStorage = new StringStorage(this.tree.size+1)
+		this.stringStorage = new StringStorage(this.tree.size+mmidOffset)
 		for(const node of this.tree)
 			this.stringStorage.intern(node.name)
-		this.code = ([] as number[]).concat(...this.tree.constructors.map(obj=>
-			(obj.id > 0xFFFF)?
-				[OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),obj.id,OpCode.o2(Op.CALL,0)]:
-				[OpCode.o3(Op.PUSH_CONST,Type.FUNCTION,obj.id),OpCode.o2(Op.CALL,0)]
-		))
+		this.code = []
+		this.treeInitilizer(this.tree.root)
+		for(const func of this.tree.constructors){
+			this.pushValue(func.id,Type.FUNCTION)
+			this.pushOpc(OpCode.o2(Op.CALL,0))
+		}
 		this.pushOpc(OpCode.o3(Op.PUSH_CONST,Type.BOOLEAN,1),OpCode.o2(Op.RET))
 	}
 	link(file:CompiledFile){
 		let labels:Map<number,number> = new Map()
 		let lookback:number[] = []
 		let context:ObjectTreeNode|undefined
+		const lut = this.tree.getFileLut(file)!
 		const code = file.code
 		const opc = new OpCode()
 		for(let i=0; i<code.length; i++){
 			switch(opc.set(code[i]).op){
 				case Op.PUSH_VALUE:{
 					let value = code[i+1]
-					if(opc.type == Type.STRING)
+					let type = opc.type
+					if(opc.type == Type.STRING){
 						value = this.stringStorage.intern(file.strings[value])
-					else if(opc.isType(Type.OBJECT))
-						value = this.tree.getByMetadataId(file.path,value).id
-					else if(opc.type == Type.INTEGER && value >= 0xFFFF8000)
+					}else if(opc.isType(Type.OBJECT)){
+						value = lut[value].id
+						if(opc.type == Type.IMPORT)
+							type = lut[value].proxy!.type
+					}else if(opc.type == Type.INTEGER && value >= 0xFFFF8000){
 						value &= 0xFFFF
-					if(value > 0xFFFF){
-						this.pushOpc(code[i],value)
-					}else{
-						this.pushOpc(OpCode.o3(Op.PUSH_CONST,opc.type,value))
 					}
+					this.pushValue(value,type)
 					i += 1
 					break
 				}case Op.LABEL:
@@ -341,8 +400,10 @@ export class Linker{
 					this.updateJumps(lookback,labels)
 					lookback = []
 					labels = new Map()
-					context = this.tree.getByMetadataId(file.path,opc.u24)
+					context = lut[opc.u24]
 					context.address = this.offset
+					if(context.proxy)
+						context = context.proxy
 					break
 				}default:
 					this.pushOpc(code[i])
@@ -386,27 +447,25 @@ export class Linker{
 		this.code.push(...data)
 		this.offset = this.code.length
 	}
-	private resolvePathAbs(path:string[], context?:ObjectTreeNode){
-		let ctx = context
-		let code:number[] = []
-		if(ctx){
-			while(true){
-				if(path[0] == 'parent'){
-					// to do: better error msg
-					if(!ctx.parent)
-						throw new Error('root has no parent')
-					ctx = ctx.parent
-					path.shift()
-				}else{
-					const next = ctx.children.get(path[0])
-					if(!next)
-						break
-					ctx = next
-					path.shift()
-				}
-			}
-			code = ctx.id > 0xFFFF ? [OpCode.o3(Op.PUSH_VALUE,ctx.type),ctx.id] : [OpCode.o3(Op.PUSH_CONST,ctx.type,ctx.id)]
-		}
+	private pushValue(value:number,type:Type){
+		if(value > 0xFFFF)
+			this.pushOpc(OpCode.o3(Op.PUSH_VALUE,type),value)
+		else
+			this.pushOpc(OpCode.o3(Op.PUSH_CONST,type,value))
+	}
+	private resolvePath(path:string|string[], context:ObjectTreeNode){
+		const pathArray = typeof path === "string" ? path.split('.') : path
+		if(pathArray[0] == '')
+			return this.dynamicPath(pathArray.slice(1))
+		const subpath = this.tree.resolvePath(pathArray,context)
+		const code = subpath.ctx.id > 0xFFFF ?
+			[OpCode.o3(Op.PUSH_VALUE,subpath.ctx.type),subpath.ctx.id] :
+			[OpCode.o3(Op.PUSH_CONST,subpath.ctx.type,subpath.ctx.id)]
+		code.push(...this.dynamicPath(subpath.path))
+		return code
+	}
+	private dynamicPath(path:string[]){
+		const code:number[] = []
 		for(const name of path){
 			if(name == 'parent'){
 				code.push(OpCode.o2(Op.PUSH_PARENT))
@@ -421,22 +480,21 @@ export class Linker{
 		}
 		return code
 	}
-	private resolvePath(apath:string[]|string, context?:ObjectTreeNode){
-		const path = typeof apath === "string" ? apath.split('.') : apath
-		switch(path[0]){
-			case '': return this.resolvePathAbs(path.slice(1))
-			case 'root': return this.resolvePathAbs(path.slice(1),this.tree.root)
-			case 'self': return this.resolvePathAbs(path.slice(1),context)
-			case 'parent': return this.resolvePathAbs(path,context)
+	private treeInitilizer(node:ObjectTreeNode){
+		if(node.type == Type.IMPORT || node.children.size == 0)
+			return
+		this.pushValue(node.id,node.type)
+		if(node.children.size > 1)
+			this.pushOpc(OpCode.o2(Op.DUP,node.children.size-1))
+		for(const child of node.children.values()){
+			const mmid = this.stringStorage.intern(child.name)
+			if(mmid > 0xFFFFFF){
+				this.pushOpc(OpCode.o3(Op.PUSH_VALUE,Type.STRING),mmid,OpCode.o2(Op.PUSH_MEMBER_UNSAFE))
+			}else{
+				this.pushOpc(OpCode.o2(Op.PUSH_MEMBER_CONST,mmid))
+			}
 		}
-		let ctx = context
-		while(ctx){
-			const next = ctx.children.get(path[0])
-			if(next)
-				return this.resolvePathAbs(path.slice(1),next)
-			ctx = ctx.parent
-		}
-		// to do: better error msg
-		throw new Error(`can not resolve path '${path.join('.')}'`)
+		for(const child of node.children.values())
+			this.treeInitilizer(child)
 	}
 }
