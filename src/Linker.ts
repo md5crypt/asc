@@ -117,12 +117,12 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 					name: file.strings[metadata.name],
 					type: metadata.type,
 					children: new Map(),
-					id: metadata.type==Type.IMPORT?0:id++
+					id: metadata.type==Type.IMPORT||metadata.type==Type.STUB?0:id++
 				}
 				lut.push(o)
-				if(metadata.type != Type.IMPORT)
+				if(o.id>0)
 					this.nodes.push(o)
-				else
+				else if(metadata.type == Type.IMPORT)
 					imports.push(o)
 				if(metadata.type == Type.EXTERN){
 					if(typeof metadata.address == 'undefined')
@@ -151,7 +151,8 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 				throw new Error('local root object not found')
 			localroot.name = `${file.path.slice(0,-5)}@main`
 			localroot.proxy = base
-			this.constructors.push(localroot)
+			if(localroot.type != Type.STUB)
+				this.constructors.push(localroot)
 			this.nodesFileMap.set(file.path,lut)
 		}
 		this.evaulateImports(imports)
@@ -344,7 +345,7 @@ export class Linker{
 					let type = opc.type
 					if(opc.type == Type.STRING){
 						value = this.stringStorage.intern(file.strings[value])
-					}else if(opc.isType(Type.OBJECT)){
+					}else if(opc.isType(Type.HASHMAP)){
 						value = lut[value].id
 						if(opc.type == Type.IMPORT)
 							type = lut[value].proxy!.type
@@ -487,11 +488,15 @@ export class Linker{
 		if(node.children.size > 1)
 			this.pushOpc(OpCode.o2(Op.DUP,node.children.size-1))
 		for(const child of node.children.values()){
+			if(child.type == Type.IMPORT)
+				this.pushValue(child.proxy!.id,child.proxy!.type)
+			else
+				this.pushValue(child.id,child.type)
 			const mmid = this.stringStorage.intern(child.name)
 			if(mmid > 0xFFFFFF){
-				this.pushOpc(OpCode.o3(Op.PUSH_VALUE,Type.STRING),mmid,OpCode.o2(Op.PUSH_MEMBER_UNSAFE))
+				this.pushOpc(OpCode.o3(Op.PUSH_VALUE,Type.STRING),mmid,OpCode.o2(Op.SET_MEMBER_UNSAFE))
 			}else{
-				this.pushOpc(OpCode.o2(Op.PUSH_MEMBER_CONST,mmid))
+				this.pushOpc(OpCode.o2(Op.SET_MEMBER_CONST,mmid))
 			}
 		}
 		for(const child of node.children.values())

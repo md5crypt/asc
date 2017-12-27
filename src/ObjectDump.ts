@@ -151,7 +151,7 @@ abstract class ProgramData{
 		if(type == Type.BOOLEAN){
 			return `${!!value}:boolean`
 		}
-		if(OpCode.isType(type,Type.OBJECT))
+		if(OpCode.isType(type,Type.HASHMAP))
 			return `${this.getObjectName(value)}:${OpCode.getTypeName(type)}`
 		return `:${OpCode.getTypeName(type)}`
 	}
