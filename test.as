@@ -1,3 +1,4 @@
+#=
 function fibo n:integer
 	if n < 2
 		return "1"
@@ -7,7 +8,7 @@ function fibo n:integer
 
 while true
 	print {length {string.split {fibo 20} "+"}}
-
+=#
 #=
 local a = [1 2 3 4 5 6 7 8 9 0]
 array.unshift a -4 -3 -2 -1
@@ -23,3 +24,15 @@ print {string.split "a+b+c+d+e+f+g+h" "+"}
 local p = {string.find "mmamamammaremarekkkkkk" "marek"}
 print p {string.slice "mmamamammaremarekkkkkk" p p+5}
 =#
+
+for x in 0:128
+	set (root "key_$x") = x
+for x in 0:128
+	print (root "key_$x")
+
+local ns = root
+
+set ns.stdlib.array.xoxo = 2
+print root.stdlib.array.xoxo
+
+print {apply string.split ["a+b" "+"] 1}

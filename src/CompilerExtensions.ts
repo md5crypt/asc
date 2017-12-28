@@ -56,3 +56,15 @@ Compiler.registerExtension('await',false,(tok,args)=>{
 	args[0].push(OpCode.o2(Op.WAIT),OpCode.o2(Op.LINE,tok.first_line),OpCode.o2(Op.DEALLOC,1))
 	return args[0]
 })
+
+Compiler.registerExtension('apply',true,(tok,args)=>{
+	if(args.length != 2)
+		throw new CompilerError(tok,`build-in function 'apply' called with ${args.length} argument(s)`)
+	return args[1].concat(args[0],OpCode.o2(Op.APPLY),OpCode.o2(Op.LINE,tok.first_line))
+})
+
+Compiler.registerExtension('apply',false,(tok,args)=>{
+	if(args.length != 2)
+		throw new CompilerError(tok,`build-in function 'apply' called with ${args.length} argument(s)`)
+	return args[1].concat(args[0],OpCode.o2(Op.APPLY),OpCode.o2(Op.LINE,tok.first_line),OpCode.o2(Op.DEALLOC,1))
+})

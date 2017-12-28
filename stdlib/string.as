@@ -27,5 +27,5 @@ namespace string
 		if {istype value 'array'}
 			return "[${array.join value}]"
 		if {istype value 'hashmap'}
-			return "[${hashmap.path value}:${typeof value}]"
-		return "[:${typeof value}]"
+			return "<${hashmap.path value}:${typeof value}>"
+		return "<:${typeof value}>"

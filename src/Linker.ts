@@ -484,14 +484,15 @@ export class Linker{
 	private treeInitilizer(node:ObjectTreeNode){
 		if(node.type == Type.IMPORT || node.children.size == 0)
 			return
-		this.pushValue(node.id,node.type)
-		if(node.children.size > 1)
-			this.pushOpc(OpCode.o2(Op.DUP,node.children.size-1))
+		//this.pushValue(node.id,node.type)
+		//if(node.children.size > 1)
+		//	this.pushOpc(OpCode.o2(Op.DUP,node.children.size-1))
 		for(const child of node.children.values()){
 			if(child.type == Type.IMPORT)
 				this.pushValue(child.proxy!.id,child.proxy!.type)
 			else
 				this.pushValue(child.id,child.type)
+			this.pushValue(node.id,node.type)
 			const mmid = this.stringStorage.intern(child.name)
 			if(mmid > 0xFFFFFF){
 				this.pushOpc(OpCode.o3(Op.PUSH_VALUE,Type.STRING),mmid,OpCode.o2(Op.SET_MEMBER_UNSAFE))

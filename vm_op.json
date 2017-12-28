@@ -20,6 +20,7 @@
 	"jmp",
 	"je",
 	"jne",
+	"apply",
 	"call",
 	"call_unsafe",
 	"call_async",
