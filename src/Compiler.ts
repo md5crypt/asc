@@ -79,8 +79,8 @@ function operatorEval(op:string, l:number, r:number){
 
 function readFloat(value:number){
 	const view = new DataView(new ArrayBuffer(4))
-	view.setUint32(0,value)
-	return view.getFloat32(0)
+	view.setUint32(0,value,true)
+	return view.getFloat32(0,true)
 }
 
 export class Compiler{
@@ -416,10 +416,13 @@ export class Compiler{
 		o.push(OpCode.o2(Op.SET),this.stringStorage.intern(name),OpCode.o2(Op.LINE,tok.first_line))
 		return o
 	}
-	setBlock(tok:LexerLocation,varname:string,pairs:number[][]){
-		const expr = this.varname(tok,varname)
-		expr.push(OpCode.o2(Op.DUP,pairs.length))
-		return expr.concat(...pairs)
+	setBlock(tok:LexerLocation,varname:string,pairs:{key:string,value:number[],tok:LexerLocation}[]){
+		const out = this.local(tok,'$setself',this.varname(tok,varname))
+		for(const pair of pairs){
+			pair.value.push(...this.varname(pair.tok,'$setself'))
+			out.push(...this.set(pair.tok,'.'+pair.key,pair.value))
+		}
+		return this.wrapBlock(out)
 	}
 	setPair(tok:LexerLocation,varname:string,expression:number[]){
 		if(varname[0]=='.')

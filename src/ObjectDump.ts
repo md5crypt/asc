@@ -145,8 +145,8 @@ abstract class ProgramData{
 			return `${value}:integer`
 		if(type == Type.FLOAT){
 			const view = new DataView(new ArrayBuffer(4))
-			view.setUint32(0,value)
-			return `${view.getFloat32(0)}:float`
+			view.setUint32(0,value,true)
+			return `${view.getFloat32(0,true)}:float`
 		}
 		if(type == Type.BOOLEAN){
 			return `${!!value}:boolean`

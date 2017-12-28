@@ -120,9 +120,9 @@ setexpression:
 
 setpairs:
 	setpairs VARNAME '=' expression NL
-		{ $1.push(compiler.setPair(@2,$2,$4)); $$ = $1 } |
+		{ $1.push({key:$2,value:$4,tok:@2}); $$ = $1 } |
 	VARNAME '=' expression NL
-		{ $$ = [compiler.setPair(@1,$1,$3)] }
+		{ $$ = [{key:$1,value:$3,tok:@1}] }
 ;
 
 //------------------------------------------------------------

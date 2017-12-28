@@ -32,7 +32,10 @@ for x in 0:128
 
 local ns = root
 
+in ns.stdlib.array set
+	xoxo1 = 2
+	xoxo2 = 4
 set ns.stdlib.array.xoxo = 2
-print root.stdlib.array.xoxo
+print {hashmap.key root.stdlib.array}
 
-print {apply string.split ["a+b" "+"] 1}
+print {apply string.split ["a+b" "+"]}
