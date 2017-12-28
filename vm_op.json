@@ -20,8 +20,11 @@
 	"jmp",
 	"je",
 	"jne",
+	"apply",
 	"call",
 	"call_unsafe",
+	"call_async",
+	"wait",
 	"ret",
 	"yield",
 	"throw",
@@ -54,5 +57,4 @@
 	"not",
 	"bnot",
 	"neg"
-  ]
-  
+]

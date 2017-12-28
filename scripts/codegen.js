@@ -11,7 +11,7 @@ op.push(
 	"continue","break","blkopen","blkclose"
 );
 
-types.push(['import','object'])
+types.push(['import','object'],['stub','function'])
 
 const map = {};
 for(var i=0; i<types.length; i++)

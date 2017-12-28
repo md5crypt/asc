@@ -131,7 +131,9 @@ importexpression:
  	IMPORT VARNAME NL
 		{ $$ = compiler.import(@1,$2) } |
 	IMPORT importlist FROM VARNAME NL
-		{ $$ = compiler.import(@1,$2,$4) }
+		{ $$ = compiler.import(@1,$2,$4) } |
+	IMPORT '[' importlist ']' FROM VARNAME NL
+		{ $$ = compiler.import(@1,$3,$6) }
 ;
 
 importlist:

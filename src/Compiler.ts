@@ -169,9 +169,8 @@ export class Compiler{
 	array(tok:LexerLocation, args:number[][]){
 		return [
 			...([] as number[]).concat(...args.reverse()),
-			OpCode.o3(Op.PUSH_VALUE,Type.INTEGER),args.length,
-			OpCode.o2(Op.PUSH),this.stringStorage.intern('array'),
-			OpCode.o2(Op.CALL,args.length+1),
+			OpCode.o2(Op.PUSH),this.stringStorage.intern('root.stdlib.array.static'),
+			OpCode.o2(Op.CALL,args.length),
 			OpCode.o2(Op.LINE,tok.first_line)
 		]
 	}
@@ -355,7 +354,7 @@ export class Compiler{
 	stringExpression(tok:LexerLocation, args: number[][]){
 		if(args.length == 1 && Compiler.isString(args[0]))
 			return args[0]
-		args.unshift(this.varname(tok,'concat'))
+		args.unshift(this.varname(tok,'root.stdlib.string.concat'))
 		return this.callExpression(tok,args)
 	}
 	index(tok:LexerLocation, object:number[], key:number[]){
@@ -439,16 +438,15 @@ export class Compiler{
 	}
 	function(tok:LexerLocation, name:string, body:number[], args?:Argument[]){
 		const id = this.registerObject(tok,name,Type.FUNCTION)
-		this.createFunction(tok,id,body,args)
+		if(!body || !this.createFunction(tok,id,body,args))
+			this.objects[id].type = Type.STUB
 		return this.object(id)
 	}
 	namespace(tok:LexerLocation, name:string, body?:number[]){
 		const id = this.registerObject(tok,name,Type.NAMESPACE)
 		const out = this.object(id)
-		if(body){
-			this.createFunction(tok,id,body)
+		if(body && this.createFunction(tok,id,body))
 			out.push(OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0))
-		}
 		return out
 	}
 	extern(tok:LexerLocation, name:string, target:string){
@@ -490,15 +488,18 @@ export class Compiler{
 			if(arg.name.indexOf('.')>=0)
 				throw new CompilerError(tok,`'${arg.name}' can not be used as an argument name`)
 			const intern = this.stringStorage.intern(arg.name)
-			head.push(OpCode.o2(Op.LOCAL,-i),intern)
+			head.push(OpCode.o2(Op.LOCAL,-i-1),intern)
 			if(symbols.has(intern))
 				throw new CompilerError(tok,`argument '${arg.name}' redefined`)
-			symbols.set(intern,[-i])
+			symbols.set(intern,[-i-1])
 			if(arg.type && arg.type != 'any'){
 				const type = OpCode.getTypeByName(arg.type.toLowerCase())
 				if(typeof type == "undefined")
 					throw new CompilerError(tok,`undefined type '${arg.type.toLowerCase()}'`)
-				head.push(OpCode.o3(arg.optional?Op.ASSERT_ARG_TYPE:Op.ASSERT_TYPE,type,-i))
+				if(arg.optional)
+					head.push(OpCode.o3(Op.ASSERT_ARG_TYPE,type,i))
+				else
+					head.push(OpCode.o3(Op.ASSERT_TYPE,type,-i-1))
 			}
 			if(arg.variadic)
 				head.push(OpCode.o2(Op.PUSH_ARGUMENT_ARRAY,args.length-1),OpCode.o2(Op.SET_LOCAL,-i))
@@ -583,6 +584,8 @@ export class Compiler{
 						tail.push(body[++i])
 			}
 		}
+		if(tail.length == 0)
+			return false
 		tail.push(OpCode.o3(Op.PUSH_CONST,Type.UNDEFINED,0),OpCode.o2(Op.RET))
 		if(maxcnt > 0)
 			head.push(OpCode.o2(Op.ALLOC,maxcnt))
@@ -598,6 +601,7 @@ export class Compiler{
 			}
 		}
 		this.code.push(head)
+		return true
 	}
 }
 

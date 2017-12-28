@@ -26,3 +26,45 @@ Compiler.registerExtension('_argv',true,(tok,args)=>{
 	args[0].push(OpCode.o2(Op.PUSH_ARGUMENT))
 	return args[0]
 })
+
+Compiler.registerExtension('async',true,(tok,args)=>{
+	if(args.length == 0)
+		throw new CompilerError(tok,`build-in function 'async' called with ${args.length} argument(s)`)
+	const out = ([] as number[]).concat(...args.reverse())
+	out.push(OpCode.o2(Op.CALL_ASYNC,args.length-1),OpCode.o2(Op.LINE,tok.first_line))
+	return out
+})
+
+Compiler.registerExtension('async',false,(tok,args)=>{
+	if(args.length == 0)
+		throw new CompilerError(tok,`build-in function 'async' called with ${args.length} argument(s)`)
+	const out = ([] as number[]).concat(...args.reverse())
+	out.push(OpCode.o2(Op.CALL_ASYNC,args.length-1),OpCode.o2(Op.LINE,tok.first_line),OpCode.o2(Op.DEALLOC,1))
+	return out
+})
+
+Compiler.registerExtension('await',true,(tok,args)=>{
+	if(args.length != 1)
+		throw new CompilerError(tok,`build-in function 'wait' called with ${args.length} argument(s)`)
+	args[0].push(OpCode.o2(Op.WAIT),OpCode.o2(Op.LINE,tok.first_line))
+	return args[0]
+})
+
+Compiler.registerExtension('await',false,(tok,args)=>{
+	if(args.length != 1)
+		throw new CompilerError(tok,`build-in function 'wait' called with ${args.length} argument(s)`)
+	args[0].push(OpCode.o2(Op.WAIT),OpCode.o2(Op.LINE,tok.first_line),OpCode.o2(Op.DEALLOC,1))
+	return args[0]
+})
+
+Compiler.registerExtension('apply',true,(tok,args)=>{
+	if(args.length != 2)
+		throw new CompilerError(tok,`build-in function 'apply' called with ${args.length} argument(s)`)
+	return args[1].concat(args[0],OpCode.o2(Op.APPLY),OpCode.o2(Op.LINE,tok.first_line))
+})
+
+Compiler.registerExtension('apply',false,(tok,args)=>{
+	if(args.length != 2)
+		throw new CompilerError(tok,`build-in function 'apply' called with ${args.length} argument(s)`)
+	return args[1].concat(args[0],OpCode.o2(Op.APPLY),OpCode.o2(Op.LINE,tok.first_line),OpCode.o2(Op.DEALLOC,1))
+})
