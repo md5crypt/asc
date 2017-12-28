@@ -28,7 +28,6 @@ program:
 
 //------------------------------------------------------------
 
-
 object:
 	FUNCTION VARNAME arguments block
 		{ $$ = compiler.function(@1,$2,$4,$3) } |
@@ -71,12 +70,8 @@ type: VARNAME | NAMESPACE | OBJECT | FUNCTION ;
 body:
 	INDT fstatments DEDT
 		{ $$ = compiler.wrapBlock($2) } |
-	IF ifexpression
-		{ $$ = $2 } |
-	WHILE whileexpression
-		{ $$ = $2 } |
-	FOR forexpression
-		{ $$ = $2 } |
+	blockexpression
+		{ $$ = $1 } |
 	command NL
 		{ $$ = compiler.wrapBlock($1) } |
 	NL
@@ -95,14 +90,10 @@ statments:
 		{ $$ = $1; $$.push(...$2) } |
 	statments command NL
 		{ $$ = $1; $$.push(...$2) } |
-	statments IF ifexpression
-		{ $$ = $1; $$.push(...$3) } |
-	statments WHILE whileexpression
-		{ $$ = $1; $$.push(...$3) } |
-	statments FOR forexpression
-		{ $$ = $1; $$.push(...$3) } |
-	statments IMPORT importexpression
-		{ $$ = $1; $$.push(...$3) } |
+	statments blockexpression
+		{ $$ = $1; $$.push(...$2) } |
+	statments importexpression
+		{ $$ = $1; $$.push(...$2) } |
 	/* empty */
 		{ $$ = [] }
 ;
@@ -110,23 +101,37 @@ statments:
 fstatments:
 	fstatments command NL
 		{ $$ = $1; $$.push(...$2) } |
-	fstatments IF ifexpression
-		{ $$ = $1; $$.push(...$3) } |
-	fstatments WHILE whileexpression
-		{ $$ = $1; $$.push(...$3) } |
-	fstatments FOR forexpression
-		{ $$ = $1; $$.push(...$3) } |
+	fstatments blockexpression
+		{ $$ = $1; $$.push(...$2) } |
 	/* empty */
 		{ $$ = [] }
 ;
 
 //------------------------------------------------------------
 
+blockexpression: ifexpression | whileexpression | forexpression | setexpression ;
+
+//------------------------------------------------------------
+
+setexpression:
+	  IN VARNAME SET INDT setpairs DEDT
+	  	{ $$ = compiler.setBlock(@1,$2,$5) }
+;
+
+setpairs:
+	setpairs VARNAME '=' expression NL
+		{ $1.push(compiler.setPair(@2,$2,$4)); $$ = $1 } |
+	VARNAME '=' expression NL
+		{ $$ = [compiler.setPair(@1,$1,$3)] }
+;
+
+//------------------------------------------------------------
+
 importexpression:
- 	VARNAME NL
-		{ $$ = compiler.import(@1,$1) } |
-	importlist FROM VARNAME NL
-		{ $$ = compiler.import(@1,$1,$3) }
+ 	IMPORT VARNAME NL
+		{ $$ = compiler.import(@1,$2) } |
+	IMPORT importlist FROM VARNAME NL
+		{ $$ = compiler.import(@1,$2,$4) }
 ;
 
 importlist:
@@ -138,7 +143,8 @@ importlist:
 
 //------------------------------------------------------------
 
-ifexpression:
+ifexpression: IF ifbody { $$ = $2 } ;
+ifbody:
 	expression body %prec THEN
 		{ $$ = compiler.ifBlock(@1,$1,$2) } |
 	expression body ELSE body
@@ -154,19 +160,19 @@ ifexpression:
 //------------------------------------------------------------
 
 whileexpression:
-	expression body
-		{ $$ = compiler.whileBlock(@1,$1,$2) }
+	WHILE expression body
+		{ $$ = compiler.whileBlock(@1,$2,$3) }
 ;
 
 //------------------------------------------------------------
 
 forexpression:
-	VARNAME IN expression body
-		{ $$ = compiler.forBlock(@1,$4,$1,$3) } |
-	VARNAME IN expression ':' expression body
-		{ $$ = compiler.forBlockNumeric(@1,$6,$1,$3,$5) } |
-	VARNAME IN expression ':' expression ':' expression body
-		{ $$ = compiler.forBlockNumeric(@1,$8,$1,$3,$5,$7) }
+	FOR VARNAME IN expression body
+		{ $$ = compiler.forBlock(@1,$5,$2,$4) } |
+	FOR VARNAME IN expression ':' expression body
+		{ $$ = compiler.forBlockNumeric(@1,$7,$2,$4,$6) } |
+	FOR VARNAME IN expression ':' expression ':' expression body
+		{ $$ = compiler.forBlockNumeric(@1,$9,$2,$4,$6,$8) }
 ;
 
 //------------------------------------------------------------

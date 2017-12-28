@@ -178,7 +178,7 @@ export class Compiler{
 	varname(tok:LexerLocation, str:string){
 		return [
 			OpCode.o2(Op.PUSH),
-			this.stringStorage.intern(str),
+			this.stringStorage.intern(str[0]=='.'?'root'+str:str),
 			OpCode.o2(Op.LINE,tok.first_line)
 		]
 	}
@@ -416,6 +416,17 @@ export class Compiler{
 		const o = typeof value == 'boolean' ? [OpCode.o3(Op.PUSH_CONST,Type.BOOLEAN,~~value)] : value
 		o.push(OpCode.o2(Op.SET),this.stringStorage.intern(name),OpCode.o2(Op.LINE,tok.first_line))
 		return o
+	}
+	setBlock(tok:LexerLocation,varname:string,pairs:number[][]){
+		const expr = this.varname(tok,varname)
+		expr.push(OpCode.o2(Op.DUP,pairs.length))
+		return expr.concat(...pairs)
+	}
+	setPair(tok:LexerLocation,varname:string,expression:number[]){
+		if(varname[0]=='.')
+			throw new CompilerError(tok,`member can not start with a dot ('${varname}')`)
+		expression.push(OpCode.o2(Op.SET),this.stringStorage.intern('.'+varname))
+		return expression
 	}
 	import(tok:LexerLocation, what:string|string[], from:string){
 		if(typeof what == 'string')
