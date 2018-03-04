@@ -226,7 +226,7 @@ export class Compiler{
 		body.unshift(...this.local(tok,local,this.index(tok,arrayExpression.slice(0),this.varname(tok,'$forindex'))))
 		return this.wrapBlock(output.concat(
 			this.local(tok,'$forindex',this.number(tok,'0')),
-			this.local(tok,'$forto',this.callExpression(tok,[this.varname(tok,'length'),arrayExpression.slice(0)])),
+			this.local(tok,'$forto',this.callExpression(tok,'root.stdlib.length',[arrayExpression])),
 			this.whileBlock(
 				tok,
 				this.expression(tok,'<',this.varname(tok,'$forindex'),this.varname(tok,'$forto')),
@@ -339,23 +339,20 @@ export class Compiler{
 		o.push(OpCode.o2(operator,OpCode.o2(Op.LINE,tok.first_line)))
 		return o
 	}
-	callExpression(tok:LexerLocation, args: number[][]){
-		if(Compiler.isVarible(args[0])){
-			const name = this.stringStorage.get(args[0][1])
+	callExpression(tok:LexerLocation, func:number[]|string, args: number[][]){
+		const funcExpr = typeof func == 'string'?this.varname(tok,func):func
+		if(Compiler.isVarible(funcExpr)){
+			const name = this.stringStorage.get(funcExpr[1])
 			const ext = Compiler.extensions[1].get(name)
 			if(ext)
-				return ext(tok,args.slice(1),this.stringStorage)
+				return ext(tok,args,this.stringStorage)
 		}
-		const o = (args.length>1)?([] as number[]).concat(...args.slice(1).reverse()):[]
-		o.push(...args[0])
-		o.push(OpCode.o2(Op.CALL,args.length-1),OpCode.o2(Op.LINE,tok.first_line))
-		return o
+		return ([] as number[]).concat(...args.reverse(),funcExpr,OpCode.o2(Op.CALL,args.length),OpCode.o2(Op.LINE,tok.first_line))
 	}
 	stringExpression(tok:LexerLocation, args: number[][]){
 		if(args.length == 1 && Compiler.isString(args[0]))
 			return args[0]
-		args.unshift(this.varname(tok,'root.stdlib.string.concat'))
-		return this.callExpression(tok,args)
+		return this.callExpression(tok,'root.stdlib.string.concat',args)
 	}
 	index(tok:LexerLocation, object:number[], key:number[]){
 		object.push(...key,OpCode.o2(Op.PUSH_MEMBER),OpCode.o2(Op.LINE,tok.first_line))
@@ -451,6 +448,17 @@ export class Compiler{
 		if(body && this.createFunction(tok,id,body))
 			out.push(OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0))
 		return out
+	}
+	scope(tok:LexerLocation, name:string, body?:number[]){
+		if(body){
+			this.objects.push({name:this.stringStorage.intern(name),type:Type.SCOPESTUB})
+			const id = this.objects.length-1
+			if(this.createFunction(tok,id,body)){
+				this.objects[id].type = Type.SCOPE
+				return [OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0)]
+			}
+		}
+		return []
 	}
 	extern(tok:LexerLocation, name:string, target:string){
 		const id = this.registerObject(tok,name,Type.EXTERN)

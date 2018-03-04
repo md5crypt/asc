@@ -89,8 +89,9 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 		this.nodesFileMap = new Map()
 		let id = mmidOffset+1
 		const imports:ObjectTreeNode[] = []
+		const scopes:ObjectTreeNode[] = []
 		for(const file of data){
-			const lut = []
+			const lut:ObjectTreeNode[] = []
 			let base:ObjectTreeNode = this.root
 			if(file.base){
 				for(const name of file.base.split('.')){
@@ -117,22 +118,37 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 					name: file.strings[metadata.name],
 					type: metadata.type,
 					children: new Map(),
-					id: metadata.type==Type.IMPORT||metadata.type==Type.STUB?0:id++
+					id: 0
 				}
 				lut.push(o)
-				if(o.id>0)
-					this.nodes.push(o)
-				else if(metadata.type == Type.IMPORT)
-					imports.push(o)
-				if(metadata.type == Type.EXTERN){
-					if(typeof metadata.address == 'undefined')
-						throw new Error('invalid extern')
-					o.address = this.externs.intern(file.strings[metadata.address])
+				switch(metadata.type){
+					case Type.IMPORT:
+						imports.push(o)
+						break
+					case Type.STUB:
+						if(typeof metadata.parent == 'undefined')
+							localroot = o
+						break
+					case Type.SCOPE:
+						o.id = id++
+						this.nodes.push(o)
+						/* falls through */
+					case Type.SCOPESTUB:
+						scopes.push(o)
+						break
+					case Type.EXTERN:
+						o.id = id++
+						this.nodes.push(o)
+						if(typeof metadata.address == 'undefined')
+							throw new Error('invalid extern')
+						o.address = this.externs.intern(file.strings[metadata.address])
+						break
+					default:
+						o.id = id++
+						this.nodes.push(o)
+						if(typeof metadata.parent == 'undefined')
+							localroot = o
 				}
-				if(typeof metadata.parent == 'undefined')
-					localroot = o
-				if(!o.parent)
-					localroot = o
 			}
 			for(let i=0; i<file.objects.length; i++){
 				const metadata = file.objects[i]
@@ -140,7 +156,7 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 				o.parent = (typeof metadata.parent == 'undefined')?base:lut[metadata.parent]
 				if(o.parent == localroot)
 					o.parent = base
-				if(o != localroot){
+				if(o != localroot && o.type != Type.SCOPE && o.type != Type.SCOPESTUB){
 					const name = o.type == Type.IMPORT ? o.name.split('.').pop()! : o.name
 					if(o.parent.children.has(name))
 						throw new Error(`link error, object '${name}' redefined`)
@@ -155,7 +171,7 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 				this.constructors.push(localroot)
 			this.nodesFileMap.set(file.path,lut)
 		}
-		this.evaulateImports(imports)
+		this.evaulateLoop(imports,scopes)
 	}
 	[Symbol.iterator](){
 		return this.nodes[Symbol.iterator]()
@@ -210,16 +226,68 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 		// to do: better error msg
 		throw new Error(`can not resolve path '${path.join('.')}'`)
 	}
-	private evaulateImports(imports:ObjectTreeNode[]){
-		for(const o of imports){
-			const src = this.resolvePath(o.name.split('.'),o.parent || this.root)
-			if(src.path.length != 0)
-				throw new Error(`could not resolve import '${o.name}'`)
-			o.id = src.ctx.id
-			o.children = src.ctx.children
-			o.name = src.ctx.name
-			o.proxy = src.ctx
+	private evaulateLoop(imports:ObjectTreeNode[],scopes:ObjectTreeNode[]){
+		let iarr = imports
+		let sarr = scopes
+		while(true){
+			const ilen = iarr.length
+			const slen = sarr.length
+			iarr = this.evaulateImports(imports)
+			sarr = this.evaulateScopes(scopes)
+			if(iarr.length + sarr.length == 0)
+				break
+			if(iarr.length == ilen && sarr.length == slen){
+				throw new Error(`Failed to resolve path "${(ilen?iarr[0]:sarr[0]).name}"`)
+			}
 		}
+	}
+	private evaulateImports(imports:ObjectTreeNode[]){
+		const failed = [] as ObjectTreeNode[]
+		for(const o of imports){
+			let src
+			try{
+				src = this.resolvePath(o.name.split('.'),o.parent || this.root)
+			}catch(e){
+				failed.push(o)
+				continue
+			}
+			if(src.path.length != 0){
+				failed.push(o)
+			}else{
+				o.id = src.ctx.id
+				o.children = src.ctx.children
+				o.name = src.ctx.name
+				o.proxy = src.ctx
+			}
+		}
+		return failed
+	}
+	private evaulateScopes(scopes:ObjectTreeNode[]){
+		const failed:ObjectTreeNode[] = []
+		for(const o of scopes){
+			let src
+			try{
+				src = this.resolvePath(o.name.split('.'),o.parent || this.root)
+			}catch(e){
+				failed.push(o)
+				continue
+			}
+			if(src.path.length != 0){
+				failed.push(o)
+			}else{
+				const target = src.ctx
+				for(const child of o.children.values()){
+					child.parent = target
+					if(target.children.has(child.name))
+						throw new Error(`link error, object '${child.name}' redefined`)
+					target.children.set(child.name,child)
+				}
+				o.proxy = target
+				o.name = o.name.split('.').pop()+'@scope'
+				o.children = new Map()
+			}
+		}
+		return failed
 	}
 }
 
@@ -488,8 +556,8 @@ export class Linker{
 		//if(node.children.size > 1)
 		//	this.pushOpc(OpCode.o2(Op.DUP,node.children.size-1))
 		for(const child of node.children.values()){
-			if(child.type == Type.IMPORT)
-				this.pushValue(child.proxy!.id,child.proxy!.type)
+			if(child.proxy)
+				this.pushValue(child.proxy.id,child.proxy.type)
 			else
 				this.pushValue(child.id,child.type)
 			this.pushValue(node.id,node.type)

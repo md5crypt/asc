@@ -29,6 +29,8 @@ program:
 //------------------------------------------------------------
 
 object:
+	SCOPE VARNAME nullblock
+		{ $$ = compiler.scope(@1,$2,$3) } |
 	FUNCTION VARNAME arguments block
 		{ $$ = compiler.function(@1,$2,$4,$3) } |
 	NAMESPACE VARNAME nullblock
@@ -246,7 +248,7 @@ expression:
 	expression '?' expression ':' expression
 		{ $$ = compiler.ifBlock(@2,$1,$3,$5) } |
 	'{' safeexpr exprlist '}'
-		{ $3.unshift($2); $$ = compiler.callExpression(@1,$3) } |
+		{ $$ = compiler.callExpression(@1,$2,$3) } |
 	'[' exprlist ']'
 		{ $$ = compiler.array(@1,$2) } |
 	VARNAME
@@ -266,7 +268,7 @@ expression:
 
 command:
 	'{' safeexpr exprlist '}' exprlist
-		{ $3.unshift($2); $$ = compiler.call(@1,compiler.callExpression(@1,$3),$5) } |
+		{ $$ = compiler.call(@1,compiler.callExpression(@1,$2,$3),$5) } |
 	VARNAME exprlist
 		{ $$ = compiler.call(@1,$1,$2) } |
 	CONTINUE
@@ -325,7 +327,7 @@ stringvalue:
 	'$(' expression ')'
 		{ $$ = $2 } |
 	'${' safeexpr exprlist '}'
-		{ $3.unshift($2); $$ = compiler.callExpression(@1,$3) }
+		{ $$ = compiler.callExpression(@1,$2,$3) }
 ;
 
 %%

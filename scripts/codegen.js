@@ -11,7 +11,12 @@ op.push(
 	"continue","break","blkopen","blkclose"
 );
 
-types.push(['import','object'],['stub','function'])
+types.push(
+	['import','object'],
+	['stub','function'],
+	['scope','function'],
+	['scopestub','function']
+);
 
 const map = {};
 for(var i=0; i<types.length; i++)
