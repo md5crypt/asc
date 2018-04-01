@@ -10,11 +10,13 @@ export interface CompiledFile{
 	path: string
 	objects: ObjectMetadata[]
 	strings: string[]
+	sourceFile: string
 }
 
 interface ObjectTreeNode{
 	id: number
 	name: string
+	nameid?: number
 	type: Type
 	children: Map<string,ObjectTreeNode>
 	file?: CompiledFile
@@ -23,52 +25,8 @@ interface ObjectTreeNode{
 	proxy?: ObjectTreeNode
 }
 
-const magicDWord = 0xB5006BB1
-const headerSize = 20
-const objectSize = 16
-const opCodeSize = 4
-
 function dWordAlign(addr:number){
 	return addr + ((addr&3) ? 4-(addr&3) : 0)
-}
-
-function writeHeader(buffer:Uint8Array, codeSectionSize:number, objectSectionSize:number, stringSectionSize:number){
-	const u32 = new Uint32Array(buffer.buffer)
-	u32[0] = magicDWord
-	u32[1] = codeSectionSize
-	u32[2] = objectSectionSize
-	u32[3] = stringSectionSize
-	u32[4] = mmidOffset
-	return headerSize
-}
-
-function writeCodeSection(buffer:Uint8Array, offset:number, code:number[]){
-	if(offset&3)
-		throw new Error('align error')
-	const u32 = new Uint32Array(buffer.buffer,offset)
-	u32.set(code)
-	return opCodeSize*code.length
-}
-
-function writeObjectSection(buffer:Uint8Array, offset:number, tree:ObjectTree, stringSection:StringSection, externSection:ExternSection){
-	if(offset&3)
-		throw new Error('align error')
-	const u32 = new Uint32Array(buffer.buffer,offset)
-	let pos = 0
-	for(const o of tree){
-		u32[pos+0] = o.type
-		u32[pos+1] = stringSection.get(o.name)
-		u32[pos+2] = o.parent?o.parent.id:0xFFFFFFFF
-		if(o.type == Type.EXTERN){
-			if(typeof o.address == 'undefined')
-				throw new Error('invalid extern')
-			u32[pos+3] = externSection.get(o.address)
-		}else{
-			u32[pos+3] = (typeof o.address == 'undefined')?0xFFFFFFFF:o.address
-		}
-		pos += 4
-	}
-	return pos*4
 }
 
 class ObjectTree implements Iterable<ObjectTreeNode>{
@@ -291,87 +249,27 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 	}
 }
 
-class ExternSection{
-	size = 0
-	private map:Map<number,number>
-	private externs:StringStorage
-	constructor(externs:StringStorage){
-		this.externs = externs
-		const lut = externs.getLut()
-		const map:Map<number,number> = new Map()
-		let offset = 0
-		for(let i=0; i<lut.length; i++){
-			map.set(i,offset)
-			offset += lut[i].length+1
-		}
-		this.map = map
-		this.size = dWordAlign(offset)
-	}
-	get(n:number){
-		const addr = this.map.get(n)
-		if(typeof addr == 'undefined')
-			throw new Error('unknown extern index')
-		return addr
-	}
-	write(buffer:Uint8Array, offset:number){
-		if(offset&3)
-			throw new Error('align error')
-		const out = Buffer.from(this.externs.getLut().join('\0')+'\0','ascii')
-		if(dWordAlign(out.length) != this.size)
-			throw new Error('extern section size missmatch')
-		buffer.set(out,offset)
-		return this.size
-	}
-}
-
-class StringSection{
-	size = 0
-	private strings:StringStorage
-	constructor(strings:StringStorage){
-		this.strings = strings
-		const lut = strings.getLut()
-		const map:Map<number,number> = new Map()
-		let offset = 0
-		for(let i=0; i<lut.length; i++){
-			map.set(i,offset)
-			offset += 4+dWordAlign(lut[i].length*2)
-		}
-		this.size = offset
-	}
-	get(str:string){
-		return this.strings.intern(str)
-	}
-	write(buffer:Uint8Array, offset:number){
-		if(offset&3)
-			throw new Error('align error')
-		const view = new DataView(buffer.buffer,offset)
-		let pos = 0
-		for(const s of this.strings.getLut()){
-			view.setUint32(pos,s.length,true)
-			pos += 4
-			for(let i=0; i<s.length; i++){
-				view.setUint16(pos,s.charCodeAt(i),true)
-				pos += 2
-			}
-			if(pos&2)
-				pos += 2
-		}
-		if(pos != this.size)
-			throw new Error('string section size missmatch')
-		return pos
-	}
-}
-
 class Symbols{
-	private lines:number[] = []
-	private locals:number[] = []
-	private stringStorage = new StringStorage()
+	lines:number[] = []
+	files:number[] = []
+	functions:number[] = []
+	//locals:number[] = []
+	stringStorage = new StringStorage()
+	pushFunction(offset: number, id: number){
+		this.functions.push(offset,id)
+	}
+	pushFile(offset: number, str: string){
+		this.files.push(offset,this.stringStorage.intern(str))
+	}
 	pushLine(offset: number, line: number){
-		this.lines.push(offset,line)
+		if(this.lines[0] == line)
+			this.lines[1] = offset
+		else
+			this.lines.unshift(line,offset)
 	}
-	pushLocal(offset: number, sp:number, str:string){
-		this.locals.push(offset,sp,this.stringStorage.intern(str))
-	}
+	//pushLocal(offset: number, sp:number, str:string){
+	//	this.locals.push(offset,sp,this.stringStorage.intern(str))
+	//}
 }
 
 const jumpMap = new Map([
@@ -390,7 +288,7 @@ export class Linker{
 		this.tree = new ObjectTree(data)
 		this.stringStorage = new StringStorage(this.tree.size+mmidOffset)
 		for(const node of this.tree)
-			this.stringStorage.intern(node.name)
+			node.nameid = this.stringStorage.intern(node.name)
 		this.code = []
 		this.treeInitilizer(this.tree.root)
 		for(const func of this.tree.constructors){
@@ -406,6 +304,7 @@ export class Linker{
 		const lut = this.tree.getFileLut(file)!
 		const code = file.code
 		const opc = new OpCode()
+		this.symbols.pushFile(this.offset,file.sourceFile)
 		for(let i=0; i<code.length; i++){
 			switch(opc.set(code[i]).op){
 				case Op.PUSH_VALUE:{
@@ -430,7 +329,7 @@ export class Linker{
 					this.symbols.pushLine(this.offset,opc.u24)
 					break
 				case Op.LOCAL:
-					this.symbols.pushLocal(this.offset,opc.u24,file.strings[code[++i]])
+					//this.symbols.pushLocal(this.offset,opc.u24,file.strings[code[++i]])
 					break
 				case Op.JMP_L:
 				case Op.JE_L:
@@ -456,6 +355,8 @@ export class Linker{
 					if(!context)
 						throw new Error("null context")
 					const path = file.strings[code[i+1]].split('.')
+					if(path.length == 1)
+						throw new Error(`set ${path[0]}: no container specifed`)
 					this.pushOpc(...this.resolvePath(path.slice(0,-1),context))
 					const mmid = this.stringStorage.intern(path[path.length-1])
 					if(mmid > 0xFFFFFF){
@@ -481,26 +382,26 @@ export class Linker{
 		this.updateJumps(lookback,labels)
 	}
 	buildImage(){
-		const stringSection = new StringSection(this.stringStorage)
-		const externSection = new ExternSection(this.tree.getExterns())
-		const buffer = new Uint8Array(
-			headerSize +
-			stringSection.size +
-			externSection.size +
-			this.tree.size*objectSize +
-			this.code.length*opCodeSize
-		)
-		if(buffer.length&3)
-			throw new Error('invalid image size')
-		let offset = 0
-		offset += writeHeader(buffer,this.code.length*opCodeSize,this.tree.size*objectSize,stringSection.size)
-		offset += writeCodeSection(buffer,offset,this.code)
-		offset += writeObjectSection(buffer,offset,this.tree,stringSection,externSection)
-		offset += stringSection.write(buffer,offset)
-		offset += externSection.write(buffer,offset)
-		if(offset !=buffer.length)
-			throw new Error('binery image creation failed')
-		return buffer
+		const sections:Section[] = [
+			new Section("PROGMEM",this.code),
+			new Section("SHIFT",[mmidOffset]),
+			new StringSection(this.tree.getExterns(),"EXTERN"),
+			new ObjectSection(this.tree),
+			new StringSection(this.stringStorage,"STRING"),
+			new StringSection(this.symbols.stringStorage,"SYM_STRING"),
+			new Section("SYM_FILE",this.symbols.files),
+			new Section("SYM_FUNC",this.symbols.functions),
+			new Section("SYM_LINE",this.symbols.lines)
+		]
+		const data = new Uint8Array(sections.map(x=>x.size).reduce((a,b)=>a+b)+4)
+		const view = new DataView(data.buffer)
+		view.setUint32(0,0x00425341,true)
+		let offset = 4
+		for(const section of sections){
+			data.set(section.data,offset)
+			offset += section.size
+		}
+		return data
 	}
 	private updateJumps(jumps:number[], labels:Map<number,number>){
 		const opc = new OpCode()
@@ -570,5 +471,73 @@ export class Linker{
 		}
 		for(const child of node.children.values())
 			this.treeInitilizer(child)
+	}
+}
+
+class Section{
+	private mem: Uint8Array
+	protected view: DataView
+	protected uint32View: Uint32Array
+	protected uint8View: Uint8Array
+	constructor(name: string, data: ArrayBuffer|number[]|number){
+		if(name.length > 16)
+			throw new Error(`section name "${name}" to long`)
+		let size:number
+		if(typeof data == 'number')
+			size = data
+		else if(data instanceof ArrayBuffer)
+			size = data.byteLength
+		else
+			size = data.length*4
+		const mem = new Uint8Array(dWordAlign(size) + 20)
+		const view = new DataView(mem.buffer)
+		mem.set(Buffer.from(name,'ascii'))
+		view.setUint32(16,size,true)
+		if(data instanceof ArrayBuffer)
+			mem.set(new Uint8Array(data),20)
+		else if(typeof data == "object")
+			mem.set(new Uint8Array(new Uint32Array(data).buffer),20)
+		this.uint8View = new Uint8Array(mem.buffer,20)
+		this.uint32View = new Uint32Array(mem.buffer,20)
+		this.view = new DataView(mem.buffer,20)
+		this.mem = mem
+	}
+	get size(){
+		return this.data.length
+	}
+	get data(){
+		return this.mem
+	}
+}
+
+class StringSection extends Section{
+	constructor(strings:StringStorage,name:string){
+		const lut = strings.getLut()
+		let size = 0
+		for(const s of lut)
+			size += 4+dWordAlign(s.length*2)
+		super(name,size+4)
+		let offset = 4
+		this.view.setUint32(0,lut.length,true)
+		for(const s of lut){
+			this.view.setUint32(offset,s.length,true)
+			this.uint8View.set(Buffer.from(s,'utf16le'),offset+4)
+			offset += 4 + dWordAlign(s.length*2)
+		}
+	}
+}
+
+class ObjectSection extends Section{
+	constructor(tree:ObjectTree){
+		super("OBJECT",tree.size*16)
+		const u32 = this.uint32View
+		let pos = 0
+		for(const o of tree){
+			u32[pos+0] = o.type
+			u32[pos+1] = o.nameid!
+			u32[pos+2] = o.parent?o.parent.id:0xFFFFFFFF
+			u32[pos+3] = (typeof o.address == 'undefined')?0xFFFFFFFF:o.address
+			pos += 4
+		}
 	}
 }

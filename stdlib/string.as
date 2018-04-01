@@ -1,7 +1,7 @@
 namespace string
-	extern concat '__string_concat'
-	extern find '__string_find'
-	extern slice '__string_slice'
+	extern concat '__stringConcat'
+	extern find '__stringFind'
+	extern slice '__stringSlice'
 
 	function split str:string glue:string
 		local out = []

@@ -196,67 +196,80 @@ export class ObjectFile extends ProgramData{
 	}
 }
 
-function readObjects(data:Buffer){
-	const u32 = new Uint32Array(data.buffer,data.byteOffset,data.byteLength>>2)
-	const objects:ObjectMetadata[] = []
-	for(let i=0; i<u32.length; i+=4){
-		objects.push({
-			type: u32[i],
-			name: u32[i+1],
-			parent: u32[i+2],
-			address: u32[i+3]
-		})
+class ImageReader{
+	[key:string]: any
+	mmidOffset: number
+	code: Uint32Array
+	objects: ObjectMetadata[]
+	strings: string[]
+	externs: string[]
+	private static readStrings(data: Uint8Array){
+		const buffer = Buffer.from(data.buffer as ArrayBuffer,data.byteOffset,data.byteLength)
+		let offset = 4
+		const output:string[] = []
+		while(offset < data.length){
+			const size = buffer.readUInt32LE(offset,true)
+			output.push(buffer.slice(offset+4,offset+4+size*2).toString('utf16le'))
+			offset += 4 + (size+(size&1))*2
+		}
+		return output
 	}
-	return objects
-}
-
-function readStrings(data:Buffer){
-	const strings:string[] = []
-	if(data.length == 0)
-		return []
-	const u16 = new Uint16Array(data.buffer,data.byteOffset,data.byteLength>>1)
-	const u32 = new Uint32Array(data.buffer,data.byteOffset,data.byteLength>>2)
-	let offset = 0
-	while(offset < u32.length){
-		const len = u32[offset++]
-		strings.push(String.fromCharCode(...u16.subarray(offset*2,offset*2+len)))
-		offset += (len+(len&1))/2
+	protected sectionString(data: Uint8Array){
+		this.strings = ImageReader.readStrings(data)
 	}
-	return strings
-}
-
-function readExterns(data:Buffer){
-	const strings =  String(data).split('\0')
-	const map:Map<number,string> = new Map()
-	let offset = 0
-	for(const s of strings){
-		map.set(offset,s)
-		offset += s.length+1
+	protected sectionExtern(data: Uint8Array){
+		this.externs = ImageReader.readStrings(data)
 	}
-	return map
+	protected sectionProgmem(data: Uint8Array){
+		this.code = new Uint32Array(data.buffer,data.byteOffset,data.byteLength>>2)
+	}
+	protected sectionObject(data: Uint8Array){
+		const uint32View = new Uint32Array(data.buffer,data.byteOffset,data.byteLength>>2)
+		const objects:ObjectMetadata[] = []
+		for(let i=0; i<uint32View.length; i+=4){
+			objects.push({
+				type: uint32View[i],
+				name: uint32View[i+1],
+				parent: uint32View[i+2],
+				address: uint32View[i+3]
+			})
+		}
+		this.objects = objects
+	}
+	protected sectionShift(data: Uint8Array){
+		const view = new DataView(data.buffer,data.byteOffset,data.byteLength)
+		this.mmidOffset = view.getUint32(0,true)
+	}
+	constructor(data: Buffer){
+		const magicDWord = 0x00425341
+		if(data.readUInt32LE(0,true) != magicDWord)
+			throw new Error('invalid magic dword in header')
+		let offset = 4
+		while(offset < data.byteLength){
+			const name = data.slice(offset,offset+16)
+				.toString('ascii')
+				.replace(/\0/g,'')
+				.toLowerCase()
+				.replace(/(?:^|_)(.)/g,(_,group:string)=>group.toUpperCase())
+			offset += 16
+			const size = data.readUInt32LE(offset,true)
+			offset += 4
+			if('section'+name in this){
+				this['section'+name](data.subarray(offset,offset+size))
+			}else{
+				console.info(`skipping section "${name}"`)
+			}
+			offset += size
+		}
+	}
 }
 
 export class ImageFile extends ProgramData{
-	externs:Map<number,string>
+	externs:string[]
 	constructor(data:Buffer){
-		const magicDWord = 0xB5006BB1
-		const u32 = new Uint32Array(data.buffer,data.byteOffset,data.byteLength>>2)
-		if(u32[0] != magicDWord)
-			throw new Error('invalid magic dword in header')
-		const codeSectionSize = u32[1]
-		const objectSectionSize = u32[2]
-		const stringSectionSize = u32[3]
-		const mmidOffset = u32[4]
-		let offset = 20
-		const code = new Uint32Array(data.buffer,data.byteOffset+offset,codeSectionSize>>2)
-		offset += codeSectionSize
-		const objects = readObjects(data.slice(offset,offset+objectSectionSize))
-		offset += objectSectionSize
-		const strings = readStrings(data.slice(offset,offset+stringSectionSize))
-		offset += stringSectionSize
-		const externs = readExterns(data.slice(offset))
-		super(code,objects,strings,mmidOffset)
-		this.externs = externs
+		const image = new ImageReader(data)
+		super(image.code,image.objects,image.strings,image.mmidOffset)
+		this.externs = image.externs
 	}
 	getObject(id:number){
 		if(id-this.mmidOffset < this.objects.length)
@@ -275,7 +288,7 @@ export class ImageFile extends ProgramData{
 		throw new Error('string oob')
 	}
 	getExtern(id:number){
-		const s = this.externs.get(id)
+		const s = this.externs[id]
 		if(typeof s == 'undefined')
 			throw new Error('unknown extern')
 		return s

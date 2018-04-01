@@ -23,4 +23,7 @@ export default class StringStorage{
 	getLut(){
 		return this.lut
 	}
+	getOffset(){
+		return this.offset
+	}
 }

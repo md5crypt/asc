@@ -1,6 +1,6 @@
 namespace hashmap
-	extern keys '__hashmap_keys'
-	extern values '__hashmap_values'
+	extern keys '__hashmapKeys'
+	extern values '__hashmapValues'
 	function path node:hashmap
 		local path = {nameof node}
 		while node.parent

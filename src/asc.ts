@@ -137,6 +137,7 @@ function compile(cwd:string){
 			fs.writeFileSync(jsonfile,JSON.stringify({
 				objects:parser.compiler.getObjects(),
 				strings:parser.compiler.getStrings(),
+				sourceFile:file
 			}))
 			process.stdout.write('[ok]\n')
 			modified += 1
