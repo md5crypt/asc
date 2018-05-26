@@ -517,6 +517,7 @@ export class Compiler{
 		})
 		if(!variadic && mandatory != args.length)
 			head.push(OpCode.o2(Op.SET_ARRITY,args.length))
+		head.push(OpCode.o2(Op.LINE,tok.first_line))
 		return head
 	}
 	private createFunction(tok:LexerLocation, id:number, body:number[], args?:Argument[]){

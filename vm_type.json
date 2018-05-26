@@ -11,8 +11,10 @@
 	[ "extern", "callable" ],
 	[ "native", "extern" ],
 	[ "namespace", "hashmap" ],
+	[ "frame", "hashmap" ],
+	[ "vector", "indexable" ],
+	[ "hashmap", "indexable" ],
 	[ "numeric", null ],
-	[ "vector", null ],
-	[ "hashmap", null ],
+	[ "indexable", null ],
 	[ "thread", null ]
-]
+  ]

@@ -262,10 +262,10 @@ class Symbols{
 		this.files.push(offset,this.stringStorage.intern(str))
 	}
 	pushLine(offset: number, line: number){
-		if(this.lines[0] == line)
-			this.lines[1] = offset
+		if(this.lines[this.lines.length-1] == line)
+			this.lines[this.lines.length-2] = offset
 		else
-			this.lines.unshift(line,offset)
+			this.lines.push(offset,line)
 	}
 	//pushLocal(offset: number, sp:number, str:string){
 	//	this.locals.push(offset,sp,this.stringStorage.intern(str))
@@ -329,6 +329,7 @@ export class Linker{
 					this.symbols.pushLine(this.offset,opc.u24)
 					break
 				case Op.LOCAL:
+					i += 1
 					//this.symbols.pushLocal(this.offset,opc.u24,file.strings[code[++i]])
 					break
 				case Op.JMP_L:
@@ -372,6 +373,7 @@ export class Linker{
 					labels = new Map()
 					context = lut[opc.u24]
 					context.address = this.offset
+					this.symbols.pushFunction(this.offset,context.id)
 					if(context.proxy)
 						context = context.proxy
 					break
