@@ -1,4 +1,4 @@
-import {OpCode,Op,Type} from './Opcode'
+import {OpCode,Op,Type} from './OpCode'
 import StringStorage from './StringStorage'
 
 const operatorMap = new Map(Object.entries({
@@ -436,15 +436,20 @@ export class Compiler{
 		const o = typeof value == 'boolean' ? [OpCode.o3(Op.PUSH_CONST,Type.BOOLEAN,~~value)] : value
 		return Array.prototype.concat(o,object,key,[OpCode.o2(Op.SET_MEMBER),OpCode.o2(Op.LINE,tok.first_line)]) as number[]
 	}
-	function(tok:LexerLocation, name:string, body:number[], args?:Argument[]){
+	function(tok:LexerLocation, name:string, body:number[], args?:Argument[], modifiers?:string[]){
 		const id = this.registerObject(tok,name,Type.FUNCTION)
 		if(!body || !this.createFunction(tok,id,body,args))
 			this.objects[id].type = Type.STUB
-		return this.object(id)
+		const out = this.object(id);
+		if (modifiers && modifiers.length > 0)
+			out.push(...this.applyModifiers(tok, modifiers, id, Type.FUNCTION))
+		return out
 	}
-	namespace(tok:LexerLocation, name:string, body?:number[]){
+	namespace(tok:LexerLocation, name:string, body?:number[], modifiers?:string[]){
 		const id = this.registerObject(tok,name,Type.NAMESPACE)
 		const out = this.object(id)
+		if (modifiers && modifiers.length > 0)
+			out.push(...this.applyModifiers(tok, modifiers, id, Type.NAMESPACE))
 		if(body && this.createFunction(tok,id,body))
 			out.push(OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0))
 		return out
@@ -474,6 +479,23 @@ export class Compiler{
 	getStrings(){
 		return this.stringStorage.getLut()
 	}
+	private applyModifiers(tok:LexerLocation, modifiers: string[], id: number, type:Type){
+		const out:number[] = [OpCode.o3(Op.PUSH_VALUE,type), id]
+		if (modifiers.length > 1) {
+			out.push(OpCode.o2(Op.DUP,modifiers.length-1))
+		}
+		for (let f of modifiers) {
+			const path = f.split('.')
+			path[path.length-1] = '__mod_'+path[path.length-1]
+			out.push(
+				...this.varname(tok,path.join('.')),
+				OpCode.o2(Op.CALL,1),
+				OpCode.o2(Op.LINE,tok.first_line)
+			)
+		}
+		out.push(OpCode.o2(Op.DEALLOC,modifiers.length))
+		return out
+	}
 	private registerObject(tok:LexerLocation, name:string, type:Type){
 		if(type != Type.IMPORT && name.indexOf('.')>=0)
 			throw new CompilerError(tok,`'${name}' contains a '.' character and can not be used as ${OpCode.getTypeName(type)} name`)
@@ -489,9 +511,9 @@ export class Compiler{
 		const variadic = args.length > 0 ? !!args[args.length-1].variadic : undefined
 		if(variadic){
 			if(args.length > 1)
-				head.push(OpCode.o2(Op.ASSERT_ARRITY_GE,args.length-1))
+				head.push(OpCode.o2(Op.ASSERT_ARITY_GE,args.length-1))
 		}else if(mandatory == args.length){
-			head.push(OpCode.o2(Op.ASSERT_ARRITY_EQ,mandatory))
+			head.push(OpCode.o2(Op.ASSERT_ARITY_EQ,mandatory))
 		}
 		args.forEach((arg,i)=>{
 			if(!arg.name)
@@ -516,7 +538,7 @@ export class Compiler{
 				head.push(OpCode.o2(Op.PUSH_ARGUMENT_ARRAY,args.length-1),OpCode.o2(Op.SET_LOCAL,-i))
 		})
 		if(!variadic && mandatory != args.length)
-			head.push(OpCode.o2(Op.SET_ARRITY,args.length))
+			head.push(OpCode.o2(Op.SET_ARITY,args.length))
 		head.push(OpCode.o2(Op.LINE,tok.first_line))
 		return head
 	}

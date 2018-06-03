@@ -82,9 +82,9 @@ abstract class ProgramData{
 				case Op.ALLOC:
 				case Op.CALL:
 				case Op.CALL_UNSAFE:
-				case Op.ASSERT_ARRITY_EQ:
-				case Op.ASSERT_ARRITY_GE:
-				case Op.SET_ARRITY:
+				case Op.ASSERT_ARITY_EQ:
+				case Op.ASSERT_ARITY_GE:
+				case Op.SET_ARITY:
 				case Op.PUSH_ARGUMENT_COUNT:
 				case Op.PUSH_ARGUMENT_ARRAY:
 				case Op.DUP:
@@ -198,11 +198,11 @@ export class ObjectFile extends ProgramData{
 
 class ImageReader{
 	[key:string]: any
-	mmidOffset: number
-	code: Uint32Array
-	objects: ObjectMetadata[]
-	strings: string[]
-	externs: string[]
+	mmidOffset?: number
+	code?: Uint32Array 
+	objects?: ObjectMetadata[]
+	strings?: string[]
+	externs?: string[]
 	private static readStrings(data: Uint8Array){
 		const buffer = Buffer.from(data.buffer as ArrayBuffer,data.byteOffset,data.byteLength)
 		let offset = 4
@@ -268,8 +268,14 @@ export class ImageFile extends ProgramData{
 	externs:string[]
 	constructor(data:Buffer){
 		const image = new ImageReader(data)
-		super(image.code,image.objects,image.strings,image.mmidOffset)
-		this.externs = image.externs
+		if(!image.code)
+			throw new Error("no code section found")
+		super(image.code,
+			image.objects || [],
+			image.strings || [],
+			image.mmidOffset||0
+		)
+		this.externs = image.externs || []
 	}
 	getObject(id:number){
 		if(id-this.mmidOffset < this.objects.length)

@@ -285,6 +285,7 @@ export class Linker{
 	private stringStorage:StringStorage
 	private symbols = new Symbols()
 	constructor(data:CompiledFile[]){
+		this.offset = 0
 		this.tree = new ObjectTree(data)
 		this.stringStorage = new StringStorage(this.tree.size+mmidOffset)
 		for(const node of this.tree)
