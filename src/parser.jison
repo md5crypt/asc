@@ -31,10 +31,10 @@ program:
 object:
 	SCOPE VARNAME nullblock
 		{ $$ = compiler.scope(@1,$2,$3) } |
-	FUNCTION VARNAME arguments block
-		{ $$ = compiler.function(@1,$2,$4,$3) } |
-	NAMESPACE VARNAME nullblock
-		{ $$ = compiler.namespace(@1,$2,$3) } |
+	modifiers FUNCTION VARNAME arguments block
+		{ $$ = compiler.function(@2,$3,$5,$4,$1) } |
+	modifiers NAMESPACE VARNAME nullblock
+		{ $$ = compiler.namespace(@2,$3,$4,$1) } |
 	EXTERN VARNAME STRING NL
 		{ $$ = compiler.extern(@1,$2,$3) }
 ;
@@ -64,6 +64,12 @@ optarguments:
 	/* empty */
 		{ $$ = [] }
 ;
+
+modifiers:
+	modifiers '@' VARNAME
+		{ $$ = $1; $1.push($3) } |
+	/* empty */
+		{ $$ = [] };
 
 type: VARNAME | NAMESPACE | OBJECT | FUNCTION ;
 
@@ -155,9 +161,9 @@ ifbody:
 		{ $$ = compiler.ifBlock(@1,$1,$2,$4) } |
 	expression command ELSE body
 		{ $$ = compiler.ifBlock(@1,$1,compiler.wrapBlock($2),$4) } |
-	expression body ELSEIF ifexpression
+	expression body ELSEIF ifbody
 		{ $$ = compiler.ifBlock(@1,$1,$2,$4) } |
-	expression command ELSEIF ifexpression
+	expression command ELSEIF ifbody
 		{ $$ = compiler.ifBlock(@1,$1,compiler.wrapBlock($2),$4) }
 ;
 
