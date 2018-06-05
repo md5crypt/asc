@@ -514,6 +514,8 @@ export class Compiler{
 				head.push(OpCode.o2(Op.ASSERT_ARITY_GE,args.length-1))
 		}else if(mandatory == args.length){
 			head.push(OpCode.o2(Op.ASSERT_ARITY_EQ,mandatory))
+		} else {
+			head.push(OpCode.o2(Op.SET_ARITY,args.length))
 		}
 		args.forEach((arg,i)=>{
 			if(!arg.name)
@@ -529,16 +531,11 @@ export class Compiler{
 				const type = OpCode.getTypeByName(arg.type.toLowerCase())
 				if(typeof type == "undefined")
 					throw new CompilerError(tok,`undefined type '${arg.type.toLowerCase()}'`)
-				if(arg.optional)
-					head.push(OpCode.o3(Op.ASSERT_ARG_TYPE,type,i))
-				else
-					head.push(OpCode.o3(Op.ASSERT_TYPE,type,-i-1))
+				head.push(OpCode.o3(arg.optional?Op.ASSERT_TYPE_SOFT:Op.ASSERT_TYPE,type,-i-1))
 			}
 			if(arg.variadic)
 				head.push(OpCode.o2(Op.PUSH_ARGUMENT_ARRAY,args.length-1),OpCode.o2(Op.SET_LOCAL,-i))
 		})
-		if(!variadic && mandatory != args.length)
-			head.push(OpCode.o2(Op.SET_ARITY,args.length))
 		head.push(OpCode.o2(Op.LINE,tok.first_line))
 		return head
 	}

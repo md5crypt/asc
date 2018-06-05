@@ -109,7 +109,7 @@ abstract class ProgramData{
 					console.log(`${offset}: ${opc.getOpName()} ${opc.getTypeName()}`)
 					break
 				case Op.ASSERT_TYPE:
-				case Op.ASSERT_ARG_TYPE:
+				case Op.ASSERT_TYPE_SOFT:
 					console.log(`${offset}: ${opc.getOpName()} ${opc.s16}, ${opc.getTypeName()}`)
 					break
 				case Op.JMP:

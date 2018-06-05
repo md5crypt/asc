@@ -31,7 +31,7 @@
 	"intern",
 	"istype",
 	"assert_type",
-	"assert_arg_type",
+	"assert_type_soft",
 	"assert_arity_eq",
 	"assert_arity_ge",
 	"set_arity",
