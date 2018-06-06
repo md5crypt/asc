@@ -451,7 +451,7 @@ export class Compiler{
 		if (modifiers && modifiers.length > 0)
 			out.push(...this.applyModifiers(tok, modifiers, id, Type.NAMESPACE))
 		if(body && this.createFunction(tok,id,body))
-			out.push(OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0))
+			out.push(OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0),OpCode.o2(Op.LINE,tok.first_line))
 		return out
 	}
 	scope(tok:LexerLocation, name:string, body?:number[]){
@@ -460,7 +460,7 @@ export class Compiler{
 			const id = this.objects.length-1
 			if(this.createFunction(tok,id,body)){
 				this.objects[id].type = Type.SCOPE
-				return [OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0)]
+				return [OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0),OpCode.o2(Op.LINE,tok.first_line)]
 			}
 		}
 		return []
