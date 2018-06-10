@@ -3,7 +3,7 @@ import StringStorage from './StringStorage'
 
 const operatorMap = new Map(Object.entries({
 	'|':Op.BOR,'^':Op.BXOR,'&':Op.BAND,'==':Op.EQ,'===':Op.EQEQ,'!=':Op.NEQ,'!==':Op.NEQNEQ,
-	'<':Op.LT,'<=':Op.LE,'>':Op.GT,'>=':Op.GE,'<<':Op.SHR,'>>':Op.SHL,'+':Op.ADD,
+	'<':Op.LT,'<=':Op.LE,'>':Op.GT,'>=':Op.GE,'>>':Op.SHR,'<<':Op.SHL,'+':Op.ADD,
 	'-':Op.SUB,'*':Op.MUL,'/':Op.DIV,'%':Op.MOD,'!':Op.NOT,'~':Op.BNOT,'~~':Op.NEG
 }))
 
@@ -282,11 +282,9 @@ export class Compiler{
 		let rvalue = right?right[1]:0
 		if(logicalOperators.has(op)){
 			const nullstring = this.stringStorage.softIntern('')
-			if(ltype == Type.STRING)
-				lvalue = ~~(lvalue === nullstring)
-			if(rtype == Type.STRING)
-				rvalue = ~~(rvalue === nullstring)
-			return this.number(tok,operatorEval(op,lvalue,rvalue))
+			lvalue = (ltype == Type.STRING) && (lvalue == nullstring) ? 0 : lvalue
+			rvalue = (rtype == Type.STRING) && (rvalue == nullstring) ? 0 : rvalue
+			return this.atom(operatorEval(op,lvalue,rvalue)?"true":"false")
 		}else if(integerOperators.has(op)){
 			if(ltype == Type.INTEGER && (!right || rtype == Type.INTEGER))
 				return this.number(tok,operatorEval(op,lvalue,rvalue))
@@ -408,10 +406,9 @@ export class Compiler{
 		}
 		return o
 	}
-	set(tok:LexerLocation, name:string, value:number[]|boolean){
-		const o = typeof value == 'boolean' ? [OpCode.o3(Op.PUSH_CONST,Type.BOOLEAN,~~value)] : value
-		o.push(OpCode.o2(Op.SET),this.stringStorage.intern(name),OpCode.o2(Op.LINE,tok.first_line))
-		return o
+	set(tok:LexerLocation, name:string, value:number[]){
+		value.push(OpCode.o2(Op.SET),this.stringStorage.intern(name),OpCode.o2(Op.LINE,tok.first_line))
+		return value
 	}
 	setBlock(tok:LexerLocation,varname:string,pairs:{key:string,value:number[],tok:LexerLocation}[]){
 		const out = this.local(tok,'$setself',this.varname(tok,varname))

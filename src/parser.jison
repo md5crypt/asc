@@ -296,17 +296,17 @@ command:
 	LOCAL VARNAME '=' expression
 		{ $$ = compiler.local(@1,$2,$4) } |
 	SET VARNAME
-		{ $$ = compiler.set(@1,$2,true) } |
+		{ $$ = compiler.set(@1,$2,compiler.atom("true")) } |
 	SET '(' safeexpr expression ')'
-		{ $$ = compiler.memberSet(@1,$3,$4,true) } |
+		{ $$ = compiler.memberSet(@1,$3,$4,compiler.atom("true")) } |
 	SET VARNAME '=' expression
 		{ $$ = compiler.set(@1,$2,$4) } |
 	SET '(' safeexpr expression ')' '=' expression
 		{ $$ = compiler.memberSet(@1,$3,$4,$7) } |
 	UNSET VARNAME
-		{ $$ = compiler.set(@1,$2,false) } |
+		{ $$ = compiler.set(@1,$2,compiler.atom("undefined")) } |
 	UNSET '(' safeexpr expression ')'
-		{ $$ = compiler.memberSet(@1,$3,$4,false) }
+		{ $$ = compiler.memberSet(@1,$3,$4,compiler.atom("undefined")) }
 ;
 
 string:
@@ -332,6 +332,8 @@ stringvalue:
 		{ $$ = compiler.string($1) } |
 	'$(' expression ')'
 		{ $$ = $2 } |
+	'$(' safeexpr expression ')'
+		{ $$ = compiler.index(@1,$2,$3) } |
 	'${' safeexpr exprlist '}'
 		{ $$ = compiler.callExpression(@1,$2,$3) }
 ;
