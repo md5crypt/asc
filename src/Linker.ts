@@ -317,10 +317,18 @@ export class Linker{
 						value = lut[value].id
 						if(opc.type == Type.IMPORT)
 							type = lut[value].proxy!.type
-					}else if(opc.type == Type.INTEGER && value >= 0xFFFF8000){
-						value &= 0xFFFF
 					}
-					this.pushValue(value,type)
+					if(opc.type == Type.INTEGER) {
+						if (value < 0x8000) {
+							this.pushOpc(OpCode.o3(Op.PUSH_CONST,Type.INTEGER,value))
+						} else if (value >= 0xFFFF8000) {
+							this.pushOpc(OpCode.o3(Op.PUSH_CONST,Type.INTEGER,value&0xFFFF))
+						} else {
+							this.pushOpc(OpCode.o3(Op.PUSH_VALUE,Type.INTEGER),value)
+						}
+					} else {
+						this.pushValue(value,type)
+					}
 					i += 1
 					break
 				}case Op.LABEL:
