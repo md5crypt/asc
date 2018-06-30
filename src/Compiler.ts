@@ -139,7 +139,7 @@ export class Compiler{
 		const n = typeof str == 'number'?str:parseFloat(str)
 		if(isNaN(n) || n == Infinity || n == -Infinity)
 			throw new CompilerError(tok,"'"+str+"' equlas to "+n)
-		if(n == Math.floor(n)){
+		if((n == Math.floor(n)) && (!(typeof str == 'string') || str.indexOf('.') < 0)){
 			if(isNaN(n) || n == Infinity || n == -Infinity)
 				throw new CompilerError(tok,`'${str}' equlas to ${n}`)
 			if(n > 0x7FFFFFFF || n < -2147483648)
@@ -570,11 +570,11 @@ export class Compiler{
 					locals.push(intern)
 					const tab = symbols.get(intern)
 					if(typeof tab == 'undefined')
-						symbols.set(intern,[localcnt])
+						symbols.set(intern,[localcnt+1])
 					else
-						tab.unshift(localcnt)
+						tab.unshift(localcnt+1)
 					maxcnt = Math.max(localcnt,maxcnt)
-					tail.push(OpCode.o2(Op.LOCAL,localcnt),intern)
+					tail.push(OpCode.o2(Op.LOCAL,localcnt+1),intern)
 					break
 				}case Op.LINE:
 					lines.set(opc.u24,tail.length)
