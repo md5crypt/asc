@@ -14,8 +14,8 @@ abstract class ProgramData{
 		this.strings = strings
 		const names:string[] = []
 		for(let node of objects){
-			const path = (node.parent && node.parent!=0xFFFFFFFF)?[]:[node.name]
-			while(node.parent && node.parent != 0xFFFFFFFF){
+			const path = node.parent?[]:[node.name]
+			while(node.parent){
 				path.unshift(node.name)
 				node = this.getObject(node.parent)
 			}
@@ -49,7 +49,7 @@ abstract class ProgramData{
 	private printObjects(){
 		for(let i=0; i<this.objects.length; i++){
 			const node = this.objects[i]
-			console.log(`def object[${i+this.mmidOffset}] ${this.names[i]}:${OpCode.getTypeName(node.type)} `+((node.parent&&node.parent!=0xFFFFFFFF)?`child of ${this.getObjectName(node.parent)}`:'as root'))
+			console.log(`def object[${i+this.mmidOffset}] ${this.names[i]}:${OpCode.getTypeName(node.type)} `+(node.parent?`child of ${this.getObjectName(node.parent)}`:'as root'))
 		}
 		if(this.objects.length > 0)
 			console.log()

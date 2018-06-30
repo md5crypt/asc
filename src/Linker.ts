@@ -546,7 +546,7 @@ class ObjectSection extends Section{
 		for(const o of tree){
 			u32[pos+0] = o.type
 			u32[pos+1] = o.nameid!
-			u32[pos+2] = o.parent?o.parent.id:0xFFFFFFFF
+			u32[pos+2] = o.parent?o.parent.id:0
 			u32[pos+3] = (typeof o.address == 'undefined')?0xFFFFFFFF:o.address
 			pos += 4
 		}
