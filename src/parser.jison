@@ -8,7 +8,7 @@
 %left '&'
 %left '===' '==' '!=' '!=='
 %left '<' '<=' '>=' '>'
-%left '<<' '>>'
+%left '<<' '>>' '>>>'
 %left '--' EXPR
 %left '+' '-'
 %left '*' '/' '%'
@@ -231,6 +231,8 @@ expression:
 		{ $$ = compiler.expression(@1,'<<',$1,$3) } |
 	expression '>>' expression
 		{ $$ = compiler.expression(@1,'>>',$1,$3) } |
+	expression '>>>' expression
+		{ $$ = compiler.expression(@1,'>>>',$1,$3) } |
 	expression '+' expression
 		{ $$ = compiler.expression(@1,'+',$1,$3) } |
 	expression '-' expression

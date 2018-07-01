@@ -3,12 +3,12 @@ import StringStorage from './StringStorage'
 
 const operatorMap = new Map(Object.entries({
 	'|':Op.BOR,'^':Op.BXOR,'&':Op.BAND,'==':Op.EQ,'===':Op.EQEQ,'!=':Op.NEQ,'!==':Op.NEQNEQ,
-	'<':Op.LT,'<=':Op.LE,'>':Op.GT,'>=':Op.GE,'>>':Op.SHR,'<<':Op.SHL,'+':Op.ADD,
+	'<':Op.LT,'<=':Op.LE,'>':Op.GT,'>=':Op.GE,'>>':Op.SHR,'>>>':Op.LSR,'<<':Op.SHL,'+':Op.ADD,
 	'-':Op.SUB,'*':Op.MUL,'/':Op.DIV,'%':Op.MOD,'!':Op.NOT,'~':Op.BNOT,'~~':Op.NEG
 }))
 
 const logicalOperators = new Set(['||','&&','==','===','!=','!==','<','<=','>','>=','!'])
-const integerOperators = new Set(['|','^','&','<<','>>','%','!','~'])
+const integerOperators = new Set(['|','^','&','<<','>>','>>>','%','!','~'])
 
 export interface LexerLocation{
 	first_line: number
@@ -65,6 +65,7 @@ function operatorEval(op:string, l:number, r:number){
 		case '>=': return (l >= r)?1:0
 		case '<<': return l << r
 		case '>>': return l >> r
+		case '>>>': return l >>> r
 		case '+': return l + r
 		case '-': return l - r
 		case '*': return l * r
@@ -299,6 +300,9 @@ export class Compiler{
 				lvalue = readFloat(lvalue)
 			if(rtype == Type.FLOAT)
 				rvalue = readFloat(rvalue)
+			if(integerOperators.has(op)) {
+				return this.integer(tok,~~operatorEval(op,lvalue,rvalue))
+			}
 			return this.float(operatorEval(op,lvalue,rvalue))
 		}
 		throw new CompilerError(tok,`can not apply operator '${op}' on type '${OpCode.getTypeName(ltype)}'`+
