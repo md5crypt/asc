@@ -1,7 +1,7 @@
 [
 	[ "invalid", null ],
 	[ "undefined", null ],
-	[ "boolean", "numeric" ],
+	[ "boolean", null ],
 	[ "integer", "numeric" ],
 	[ "float", "numeric" ],
 	[ "string", "vector" ],

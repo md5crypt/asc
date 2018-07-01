@@ -135,17 +135,16 @@ export class Compiler{
 			return [OpCode.o3(Op.PUSH_VALUE,Type.BOOLEAN),1]
 		return [OpCode.o3(Op.PUSH_VALUE,Type.UNDEFINED),0]
 	}
-	number(tok:LexerLocation, str:string|number){
+	integer(tok:LexerLocation, str:string|number){
 		const n = typeof str == 'number'?str:parseFloat(str)
 		if(isNaN(n) || n == Infinity || n == -Infinity)
-			throw new CompilerError(tok,"'"+str+"' equlas to "+n)
-		if((n == Math.floor(n)) && (!(typeof str == 'string') || str.indexOf('.') < 0)){
-			if(isNaN(n) || n == Infinity || n == -Infinity)
-				throw new CompilerError(tok,`'${str}' equlas to ${n}`)
-			if(n > 0x7FFFFFFF || n < -2147483648)
-				throw new CompilerError(tok,`'${str}' overflows uint32_t`)
-			return [OpCode.o3(Op.PUSH_VALUE,Type.INTEGER),n]
-		}
+			throw new CompilerError(tok,`'${str}' equlas to ${n}`)
+		if(n > 0x7FFFFFFF || n < -2147483648)
+			throw new CompilerError(tok,`'${str}' overflows uint32_t`)
+		return [OpCode.o3(Op.PUSH_VALUE,Type.INTEGER),n]
+	}
+	float(str:string|number){
+		const n = typeof str == 'number'?str:parseFloat(str)
 		const view = new DataView(new ArrayBuffer(4))
 		view.setFloat32(0,n,true)
 		return [OpCode.o3(Op.PUSH_VALUE,Type.FLOAT),view.getUint32(0,true)]
@@ -225,19 +224,19 @@ export class Compiler{
 		}
 		body.unshift(...this.local(tok,local,this.index(tok,arrayExpression.slice(0),this.varname(tok,'$forindex'))))
 		return this.wrapBlock(output.concat(
-			this.local(tok,'$forindex',this.number(tok,'0')),
+			this.local(tok,'$forindex',this.integer(tok,'0')),
 			this.local(tok,'$forto',this.callExpression(tok,'root.stdlib.length',[arrayExpression])),
 			this.whileBlock(
 				tok,
 				this.expression(tok,'<',this.varname(tok,'$forindex'),this.varname(tok,'$forto')),
 				body,
-				this.set(tok,'$forindex',this.expression(tok,'+',this.varname(tok,'$forindex'),this.number(tok,'1')))
+				this.set(tok,'$forindex',this.expression(tok,'+',this.varname(tok,'$forindex'),this.integer(tok,'1')))
 			)
 		))
 	}
 	forBlockNumeric(tok:LexerLocation, body:number[], local:string, from:number[], to:number[], step?:number[]){
 		let toExpression = to
-		let stepExpression = step || this.number(tok,'1')
+		let stepExpression = step || this.integer(tok,'1')
 		const output:number[] = []
 		if(!Compiler.isValue(to)){
 			toExpression = this.varname(tok,'$forto')
@@ -287,18 +286,20 @@ export class Compiler{
 			return this.atom(operatorEval(op,lvalue,rvalue)?"true":"false")
 		}else if(integerOperators.has(op)){
 			if(ltype == Type.INTEGER && (!right || rtype == Type.INTEGER))
-				return this.number(tok,operatorEval(op,lvalue,rvalue))
+				return this.integer(tok,operatorEval(op,lvalue,rvalue))
 		}else if(op == '+' && ltype == Type.STRING && rtype == Type.STRING){
 			return this.string(this.stringStorage.get(lvalue)+this.stringStorage.get(rvalue))
 		}else if(
-			(ltype == Type.INTEGER || ltype == Type.FLOAT || ltype == Type.BOOLEAN) &&
-			(!right || rtype == Type.INTEGER || rtype == Type.FLOAT || rtype == Type.BOOLEAN)
+			(ltype == Type.INTEGER || ltype == Type.FLOAT) &&
+			(!right || (rtype == Type.INTEGER || rtype == Type.FLOAT))
 		){
+			if(ltype == Type.INTEGER && (!right || rtype == Type.INTEGER))
+				return this.integer(tok,operatorEval(op,lvalue,rvalue))
 			if(ltype == Type.FLOAT)
 				lvalue = readFloat(lvalue)
 			if(rtype == Type.FLOAT)
 				rvalue = readFloat(rvalue)
-			return this.number(tok,operatorEval(op,lvalue,rvalue))
+			return this.float(operatorEval(op,lvalue,rvalue))
 		}
 		throw new CompilerError(tok,`can not apply operator '${op}' on type '${OpCode.getTypeName(ltype)}'`+
 			(right?` and '${OpCode.getTypeName(rtype)}'`:''))

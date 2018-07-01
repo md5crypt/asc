@@ -259,8 +259,10 @@ expression:
 		{ $$ = compiler.array(@1,$2) } |
 	VARNAME
 		{ $$ = compiler.varname(@1,$1) } |
-	NUMBER
-		{ $$ = compiler.number(@1,$1) } |
+	INTEGER
+		{ $$ = compiler.integer(@1,$1) } |
+	FLOAT
+		{ $$ = compiler.float($1) } |
 	HEXNUMBER
 		{ $$ = compiler.hex(@1,$1) } |
 	BINNUMBER
