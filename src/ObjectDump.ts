@@ -81,7 +81,6 @@ abstract class ProgramData{
 				case Op.DEALLOC:
 				case Op.ALLOC:
 				case Op.CALL:
-				case Op.CALL_UNSAFE:
 				case Op.ASSERT_ARITY_EQ:
 				case Op.ASSERT_ARITY_GE:
 				case Op.SET_ARITY:

@@ -512,15 +512,16 @@ export class Compiler{
 		const mandatory = args.filter(a=>!a.optional).length
 		const variadic = args.length > 0 ? !!args[args.length-1].variadic : undefined
 		if(variadic){
-			if(args.length > 1)
-				head.push(OpCode.o2(Op.ASSERT_ARITY_GE,args.length-1))
+			head.push(OpCode.o2(Op.ASSERT_ARITY_GE,args.length-1))
 		}else if(mandatory == args.length){
 			head.push(OpCode.o2(Op.ASSERT_ARITY_EQ,mandatory))
 		} else {
+			if (mandatory > 0)
+				head.push(OpCode.o2(Op.ASSERT_ARITY_GE,mandatory))
 			head.push(OpCode.o2(Op.SET_ARITY,args.length))
 		}
 		args.forEach((arg,i)=>{
-			if(!arg.name)
+			if(arg.variadic || !arg.name)
 				return
 			if(arg.name.indexOf('.')>=0)
 				throw new CompilerError(tok,`'${arg.name}' can not be used as an argument name`)
@@ -535,8 +536,6 @@ export class Compiler{
 					throw new CompilerError(tok,`undefined type '${arg.type.toLowerCase()}'`)
 				head.push(OpCode.o3(arg.optional?Op.ASSERT_TYPE_SOFT:Op.ASSERT_TYPE,type,-i-1))
 			}
-			if(arg.variadic)
-				head.push(OpCode.o2(Op.PUSH_ARGUMENT_ARRAY,args.length-1),OpCode.o2(Op.SET_LOCAL,-i))
 		})
 		head.push(OpCode.o2(Op.LINE,tok.first_line))
 		return head
@@ -551,6 +550,16 @@ export class Compiler{
 		const stack:number[][] = []
 		const lines:Map<number,number> = new Map()
 		const opc = new OpCode()
+		if (args && args.length && args[args.length-1].variadic && args[args.length-1].name) {
+			const name = args[args.length-1].name!
+			const intern = this.stringStorage.intern(name)
+			localcnt = 1
+			maxcnt = 1
+			locals.push(intern)
+			symbols.set(intern,[2])
+			tail.push(OpCode.o2(Op.LOCAL,2),intern)
+			tail.push(OpCode.o2(Op.PUSH_ARGUMENT_ARRAY,args.length-1),OpCode.o2(Op.SET_LOCAL,2))
+		}
 		for(let i=0; i<body.length; i++){
 			switch(opc.set(body[i]).op){
 				case Op.BLKOPEN:
