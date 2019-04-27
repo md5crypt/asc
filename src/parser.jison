@@ -35,6 +35,12 @@ object:
 		{ $$ = compiler.function(@2,$3,$5,$4,$1) } |
 	modifiers NAMESPACE VARNAME nullblock
 		{ $$ = compiler.namespace(@2,$3,$4,$1) } |
+	modifiers LOCATION VARNAME nullblock
+		{ $$ = compiler.namespaceLocation(@2,$3,$4,$1) } |
+	modifiers OBJECT VARNAME string nullblock
+		{ $$ = compiler.namespaceObject(@2,$3,$4,$5,$1) } |
+	modifiers OBJECT VARNAME nullblock
+		{ $$ = compiler.namespaceObject(@2,$3,null,$4,$1) } |
 	EXTERN VARNAME STRING NL
 		{ $$ = compiler.extern(@1,$2,$3) }
 ;

@@ -447,14 +447,27 @@ export class Compiler{
 			out.push(...this.applyModifiers(tok, modifiers, id, Type.FUNCTION))
 		return out
 	}
-	namespace(tok:LexerLocation, name:string, body?:number[], modifiers?:string[]){
-		const id = this.registerObject(tok,name,Type.NAMESPACE)
+	namespaceGeneral(tok:LexerLocation, name:string, type: Type, body?:number[], modifiers?:string[]){
+		const id = this.registerObject(tok, name, type)
 		const out = this.object(id)
 		if (modifiers && modifiers.length > 0)
-			out.push(...this.applyModifiers(tok, modifiers, id, Type.NAMESPACE))
+			out.push(...this.applyModifiers(tok, modifiers, id, type))
 		if(body && this.createFunction(tok,id,body))
 			out.push(OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0),OpCode.o2(Op.LINE,tok.first_line))
 		return out
+	}
+	namespace(tok:LexerLocation, name:string, body?:number[], modifiers?:string[]){
+		return this.namespaceGeneral(tok, name, Type.NAMESPACE, body, modifiers)
+	}
+	namespaceLocation(tok:LexerLocation, name:string, body?:number[], modifiers?:string[]){
+		return this.namespaceGeneral(tok, name, Type.LOCATION, body, modifiers)
+	}
+	namespaceObject(tok:LexerLocation, name:string, text:number[] | null, body?:number[], modifiers?:string[]){
+		if (text !== null) {
+			body = body || []
+			body.push(...this.set(tok, 'self.text', text))
+		}
+		return this.namespaceGeneral(tok, name, Type.OBJECT, body, modifiers)
 	}
 	scope(tok:LexerLocation, name:string, body?:number[]){
 		if(body){
