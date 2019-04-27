@@ -290,8 +290,10 @@ export class Linker{
 		this.stringStorage = new StringStorage(this.tree.size+mmidOffset)
 		for(const node of this.tree)
 			node.nameid = this.stringStorage.intern(node.name)
-		this.code = []
+		this.code = [OpCode.o2(Op.JMP, 2), OpCode.o2(Op.JMP, 0)]
 		this.treeInitilizer(this.tree.root)
+		this.pushOpc(OpCode.o3(Op.PUSH_CONST,Type.BOOLEAN,1),OpCode.o2(Op.RET))
+		this.code[1] = OpCode.o2(Op.JMP, this.code.length - 1)
 		for(const func of this.tree.constructors){
 			this.pushValue(func.id,Type.FUNCTION)
 			this.pushOpc(OpCode.o2(Op.CALL,0))
