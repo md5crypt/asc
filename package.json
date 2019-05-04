@@ -22,9 +22,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prebuild:ts": "node scripts/codegen",
     "build:ts": "tsc",
-    "build:parser": "jison src/parser.jison src/parser.jisonlex -o build/parser.js",
+    "build:parser": "node_modules/.bin/jison src/parser.jison src/parser.jisonlex -o build/parser.js",
     "build": "npm run build:ts & npm run build:parser",
-    "watch": "tsc --watch"
+    "watch": "node_modules/.bin/tsc --watch"
   },
   "repository": "bitbucket:md5crypt/asc",
   "author": "",

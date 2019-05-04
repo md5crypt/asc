@@ -9,6 +9,7 @@ const operatorMap = new Map(Object.entries({
 
 const logicalOperators = new Set(['||','&&','==','===','!=','!==','<','<=','>','>=','!'])
 const integerOperators = new Set(['|','^','&','<<','>>','>>>','%','!','~'])
+const allowedEvents = new Set(['use'])
 
 export interface LexerLocation{
 	first_line: number
@@ -438,11 +439,16 @@ export class Compiler{
 		const o = typeof value == 'boolean' ? [OpCode.o3(Op.PUSH_CONST,Type.BOOLEAN,~~value)] : value
 		return Array.prototype.concat(o,object,key,[OpCode.o2(Op.SET_MEMBER),OpCode.o2(Op.LINE,tok.first_line)]) as number[]
 	}
+	functionEvent(tok:LexerLocation, name:string, body:number[], modifiers?:string[]){
+		if (!allowedEvents.has(name))
+			throw new CompilerError(tok,`'${name}' is an invalid event name`)
+		return this.function(tok, '__on_' + name, body, undefined, modifiers)
+	}
 	function(tok:LexerLocation, name:string, body:number[], args?:Argument[], modifiers?:string[]){
 		const id = this.registerObject(tok,name,Type.FUNCTION)
 		if(!body || !this.createFunction(tok,id,body,args))
 			this.objects[id].type = Type.STUB
-		const out = this.object(id);
+		const out = this.object(id)
 		if (modifiers && modifiers.length > 0)
 			out.push(...this.applyModifiers(tok, modifiers, id, Type.FUNCTION))
 		return out
@@ -499,7 +505,7 @@ export class Compiler{
 		if (modifiers.length > 1) {
 			out.push(OpCode.o2(Op.DUP,modifiers.length-1))
 		}
-		for (let f of modifiers) {
+		for (const f of modifiers) {
 			const path = f.split('.')
 			path[path.length-1] = '__mod_'+path[path.length-1]
 			out.push(

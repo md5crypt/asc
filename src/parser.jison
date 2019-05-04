@@ -33,6 +33,8 @@ object:
 		{ $$ = compiler.scope(@1,$2,$3) } |
 	modifiers FUNCTION VARNAME arguments block
 		{ $$ = compiler.function(@2,$3,$5,$4,$1) } |
+	modifiers ON VARNAME body
+		{ $$ = compiler.functionEvent(@2,$3,$4,$1)} |
 	modifiers NAMESPACE VARNAME nullblock
 		{ $$ = compiler.namespace(@2,$3,$4,$1) } |
 	modifiers LOCATION VARNAME nullblock
