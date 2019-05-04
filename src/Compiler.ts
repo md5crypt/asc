@@ -439,19 +439,22 @@ export class Compiler{
 		const o = typeof value == 'boolean' ? [OpCode.o3(Op.PUSH_CONST,Type.BOOLEAN,~~value)] : value
 		return Array.prototype.concat(o,object,key,[OpCode.o2(Op.SET_MEMBER),OpCode.o2(Op.LINE,tok.first_line)]) as number[]
 	}
-	functionEvent(tok:LexerLocation, name:string, body:number[], modifiers?:string[]){
-		if (!allowedEvents.has(name))
-			throw new CompilerError(tok,`'${name}' is an invalid event name`)
-		return this.function(tok, '__on_' + name, body, undefined, modifiers)
-	}
-	function(tok:LexerLocation, name:string, body:number[], args?:Argument[], modifiers?:string[]){
-		const id = this.registerObject(tok,name,Type.FUNCTION)
+	functionGeneral(tok:LexerLocation, name:string, type: Type, body:number[], args?:Argument[], modifiers?:string[]){
+		const id = this.registerObject(tok,name,type)
 		if(!body || !this.createFunction(tok,id,body,args))
 			this.objects[id].type = Type.STUB
 		const out = this.object(id)
 		if (modifiers && modifiers.length > 0)
-			out.push(...this.applyModifiers(tok, modifiers, id, Type.FUNCTION))
+			out.push(...this.applyModifiers(tok, modifiers, id, type))
 		return out
+	}
+	functionEvent(tok:LexerLocation, name:string, body:number[], modifiers?:string[]){
+		if (!allowedEvents.has(name))
+			throw new CompilerError(tok,`'${name}' is an invalid event name`)
+		return this.functionGeneral(tok, '__on_' + name, Type.EVENT, body, undefined, modifiers)
+	}
+	function(tok:LexerLocation, name:string, body:number[], args?:Argument[], modifiers?:string[]){
+		return this.functionGeneral(tok, name, Type.FUNCTION, body, args, modifiers)
 	}
 	namespaceGeneral(tok:LexerLocation, name:string, type: Type, body?:number[], modifiers?:string[]){
 		const id = this.registerObject(tok, name, type)

@@ -171,7 +171,7 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 		switch(path[0]){
 			//case '': return this.resolvePathAbs(path.slice(1))
 			case 'root': return this.resolvePathAbs(path.slice(1),this.root)
-			case 'self': return this.resolvePathAbs(path.slice(1),context)
+			case 'self': return this.resolvePathAbs(path.slice(1), (context.type == Type.EVENT) ? context.parent! : context)
 			case 'parent': return this.resolvePathAbs(path.slice(0),context)
 		}
 		let ctx:ObjectTreeNode|undefined = context
@@ -241,7 +241,7 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 					target.children.set(child.name,child)
 				}
 				o.proxy = target
-				o.name = o.name.split('.').pop()+'@scope'
+				o.name = o.name.split('.').pop()! + '@scope'
 				o.children = new Map()
 			}
 		}
