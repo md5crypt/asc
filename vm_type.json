@@ -15,6 +15,8 @@
 	[ "namespace", "hashmap" ],
 	[ "location", "namespace" ],
 	[ "object", "namespace" ],
+	[ "item", "namespace" ],
+	[ "character", "namespace" ],
 	[ "vector", "indexable" ],
 	[ "hashmap", "indexable" ],
 	[ "numeric", null ],

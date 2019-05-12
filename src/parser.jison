@@ -28,6 +28,8 @@ program:
 
 //------------------------------------------------------------
 
+namedobject: LOCATION | OBJECT | ITEM | CHARACTER ;
+
 object:
 	SCOPE VARNAME nullblock
 		{ $$ = compiler.scope(@1,$2,$3) } |
@@ -36,13 +38,11 @@ object:
 	modifiers ON VARNAME body
 		{ $$ = compiler.functionEvent(@2,$3,$4,$1)} |
 	modifiers NAMESPACE VARNAME nullblock
-		{ $$ = compiler.namespace(@2,$3,$4,$1) } |
-	modifiers LOCATION VARNAME nullblock
-		{ $$ = compiler.namespaceLocation(@2,$3,$4,$1) } |
-	modifiers OBJECT VARNAME string nullblock
-		{ $$ = compiler.namespaceObject(@2,$3,$4,$5,$1) } |
-	modifiers OBJECT VARNAME nullblock
-		{ $$ = compiler.namespaceObject(@2,$3,null,$4,$1) } |
+		{ $$ = compiler.namespace(@2,$3,$2,$4,$1) } |
+	modifiers namedobject VARNAME string nullblock
+		{ $$ = compiler.namespace(@3,$3,$2,$5,$1,$4) } |
+	modifiers namedobject VARNAME nullblock
+		{ $$ = compiler.namespace(@3,$3,$2,$4,$1) } |
 	EXTERN VARNAME STRING NL
 		{ $$ = compiler.extern(@1,$2,$3) }
 ;

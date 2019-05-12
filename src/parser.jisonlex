@@ -167,7 +167,7 @@ not
 	return yytext
 }
 
-on|if|in|for|elseif|else|while|function|local|scope|set|unset|return|break|continue|throw|namespace|extern|yield|import|from|object|location
+on|if|in|for|elseif|else|while|function|local|scope|set|unset|return|break|continue|throw|namespace|extern|yield|import|from|object|location|item|character
 	{ return yytext.toUpperCase() }
 
 true|false|undefined

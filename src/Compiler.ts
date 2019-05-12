@@ -10,6 +10,13 @@ const operatorMap = new Map(Object.entries({
 const logicalOperators = new Set(['||','&&','==','===','!=','!==','<','<=','>','>=','!'])
 const integerOperators = new Set(['|','^','&','<<','>>','>>>','%','!','~'])
 const allowedEvents = new Set(['use'])
+const namespaceTypes = new Map([
+	['namespace', Type.NAMESPACE],
+	['location', Type.LOCATION],
+	['object', Type.OBJECT],
+	['item', Type.ITEM],
+	['character', Type.CHARACTER],
+])
 
 export interface LexerLocation{
 	first_line: number
@@ -456,27 +463,29 @@ export class Compiler{
 	function(tok:LexerLocation, name:string, body:number[], args?:Argument[], modifiers?:string[]){
 		return this.functionGeneral(tok, name, Type.FUNCTION, body, args, modifiers)
 	}
-	namespaceGeneral(tok:LexerLocation, name:string, type: Type, body?:number[], modifiers?:string[]){
+	namespace(tok:LexerLocation, name:string, typeName: string, body?:number[], modifiers?:string[], text?:number[]){
+		const type = namespaceTypes.get(typeName)
+		if (type === undefined) {
+			throw new Error(`invalid type name: ${typeName}`)
+		}
 		const id = this.registerObject(tok, name, type)
 		const out = this.object(id)
-		if (modifiers && modifiers.length > 0)
+		if (modifiers && modifiers.length > 0) {
 			out.push(...this.applyModifiers(tok, modifiers, id, type))
-		if(body && this.createFunction(tok,id,body))
-			out.push(OpCode.o3(Op.PUSH_VALUE,Type.FUNCTION),id,OpCode.o2(Op.CALL,0),OpCode.o2(Op.LINE,tok.first_line))
-		return out
-	}
-	namespace(tok:LexerLocation, name:string, body?:number[], modifiers?:string[]){
-		return this.namespaceGeneral(tok, name, Type.NAMESPACE, body, modifiers)
-	}
-	namespaceLocation(tok:LexerLocation, name:string, body?:number[], modifiers?:string[]){
-		return this.namespaceGeneral(tok, name, Type.LOCATION, body, modifiers)
-	}
-	namespaceObject(tok:LexerLocation, name:string, text:number[] | null, body?:number[], modifiers?:string[]){
-		if (text !== null) {
-			body = body || []
-			body.push(...this.set(tok, 'self.text', text))
 		}
-		return this.namespaceGeneral(tok, name, Type.OBJECT, body, modifiers)
+		if (text) {
+			body = body || []
+			body.push(...this.set(tok, 'self.name', text))
+		}
+		if(body && this.createFunction(tok, id, body)) {
+			out.push(
+				OpCode.o3(Op.PUSH_VALUE, Type.FUNCTION),
+				id,
+				OpCode.o2(Op.CALL, 0),
+				OpCode.o2(Op.LINE, tok.first_line)
+			)
+		}
+		return out
 	}
 	scope(tok:LexerLocation, name:string, body?:number[]){
 		if(body){

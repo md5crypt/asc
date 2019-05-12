@@ -27,6 +27,13 @@ Compiler.registerExtension('_argv',true,(tok,args)=>{
 	return args[0]
 })
 
+Compiler.registerExtension('_intern',true,(tok,args)=>{
+	if(args.length != 1)
+		throw new CompilerError(tok,`build-in function '_intern' called with ${args.length} argument(s)`)
+	args[0].push(OpCode.o2(Op.INTERN))
+	return args[0]
+})
+
 Compiler.registerExtension('async',true,(tok,args)=>{
 	if(args.length == 0)
 		throw new CompilerError(tok,`build-in function 'async' called with ${args.length} argument(s)`)
