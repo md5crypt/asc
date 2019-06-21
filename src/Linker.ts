@@ -116,9 +116,11 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 					o.parent = base
 				if(o != localroot && o.type != Type.SCOPE && o.type != Type.SCOPESTUB){
 					const name = o.type == Type.IMPORT ? o.name.split('.').pop()! : o.name
-					if(o.parent.children.has(name))
-						throw new Error(`link error, object '${name}' redefined`)
-					o.parent.children.set(name,o)
+					if (name !== '__anonymous') {
+						if(o.parent.children.has(name))
+							throw new Error(`link error, object '${name}' redefined`)
+						o.parent.children.set(name, o)
+					}
 				}
 			}
 			if(!localroot)
@@ -172,7 +174,7 @@ class ObjectTree implements Iterable<ObjectTreeNode>{
 			//case '': return this.resolvePathAbs(path.slice(1))
 			case 'root': return this.resolvePathAbs(path.slice(1),this.root)
 			case 'self': return this.resolvePathAbs(path.slice(1), (context.type == Type.EVENT) ? context.parent! : context)
-			case 'parent': return this.resolvePathAbs(path.slice(0),context)
+			case 'parent': return this.resolvePathAbs(path.slice(0), (context.type == Type.EVENT) ? context.parent! : context)
 		}
 		let ctx:ObjectTreeNode|undefined = context
 		while(ctx){

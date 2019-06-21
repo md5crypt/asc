@@ -9,13 +9,14 @@ const operatorMap = new Map(Object.entries({
 
 const logicalOperators = new Set(['||','&&','==','===','!=','!==','<','<=','>','>=','!'])
 const integerOperators = new Set(['|','^','&','<<','>>','>>>','%','!','~'])
-const allowedEvents = new Set(['use'])
+const allowedEvents = new Set(['use', 'enter', 'exit', 'combine'])
 const namespaceTypes = new Map([
 	['namespace', Type.NAMESPACE],
 	['location', Type.LOCATION],
 	['object', Type.OBJECT],
 	['item', Type.ITEM],
 	['character', Type.CHARACTER],
+	['dialog', Type.DIALOG]
 ])
 
 export interface LexerLocation{
@@ -208,7 +209,7 @@ export class Compiler{
 		for(let i=0; i<body.length; i++){
 			switch(opc.set(body[i]).op){
 				case Op.BREAK:
-					expression.push(OpCode.o2(Op.JMP_L,1))
+					expression.push(OpCode.o2(Op.JMP_L,lblFooter))
 					break
 				case Op.CONTINUE:
 					expression.push(OpCode.o2(Op.JMP_L,iterator?lblPreFooter:lblHeader))
@@ -458,7 +459,48 @@ export class Compiler{
 	functionEvent(tok:LexerLocation, name:string, body:number[], modifiers?:string[]){
 		if (!allowedEvents.has(name))
 			throw new CompilerError(tok,`'${name}' is an invalid event name`)
-		return this.functionGeneral(tok, '__on_' + name, Type.EVENT, body, undefined, modifiers)
+		return this.functionGeneral(
+			tok,
+			'__on_' + name,
+			Type.EVENT,
+			body,
+			(name == 'combine') ? [{name:'target', type:'namespace'}] : undefined,
+			modifiers
+		)
+	}
+	functionOption(tok:LexerLocation, name:string, text:number[] | null, body:number[], modifiers?:string[]){
+		const out = this.functionGeneral(tok, name, Type.OPTION, body, undefined, modifiers)
+		if (text) {
+			out.push(...this.set(tok, name + '.name', text))
+		}
+		out.push(...this.call(tok, 'root.stdlib.array.push', [
+			this.varname(tok, 'self.options'),
+			this.varname(tok, name)
+		]))
+		return out
+	}
+	functionOptionAnonymous(tok:LexerLocation, text:number[] | null, body:number[], modifiers?:string[]){
+		const id = this.registerObject(tok, '__anonymous', Type.OPTION)
+		this.createFunction(tok, id, body, [])
+		const out = this.object(id)
+		if (text) {
+			out.push(
+				...text,
+				OpCode.o3(Op.PUSH_VALUE, Type.FUNCTION),
+				id,
+				OpCode.o3(Op.PUSH_VALUE, Type.STRING),
+				this.stringStorage.intern('name'),
+				OpCode.o2(Op.SET_MEMBER_UNSAFE)
+			)
+		}
+		if (modifiers && modifiers.length > 0) {
+			out.push(...this.applyModifiers(tok, modifiers, id, Type.OPTION))
+		}
+		out.push(...this.call(tok, 'root.stdlib.array.push', [
+			this.varname(tok, 'self.options'),
+			[OpCode.o3(Op.PUSH_VALUE, Type.OPTION), id]
+		]))
+		return out
 	}
 	function(tok:LexerLocation, name:string, body:number[], args?:Argument[], modifiers?:string[]){
 		return this.functionGeneral(tok, name, Type.FUNCTION, body, args, modifiers)
@@ -473,11 +515,14 @@ export class Compiler{
 		if (modifiers && modifiers.length > 0) {
 			out.push(...this.applyModifiers(tok, modifiers, id, type))
 		}
+		body = body || []
 		if (text) {
-			body = body || []
 			body.push(...this.set(tok, 'self.name', text))
 		}
-		if(body && this.createFunction(tok, id, body)) {
+		if (typeName == 'dialog') {
+			body.unshift(...this.set(tok, 'self.options', this.callExpression(tok, 'root.stdlib.array.static', [])))
+		}
+		if(body && body.length && this.createFunction(tok, id, body)) {
 			out.push(
 				OpCode.o3(Op.PUSH_VALUE, Type.FUNCTION),
 				id,

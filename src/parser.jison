@@ -28,7 +28,7 @@ program:
 
 //------------------------------------------------------------
 
-namedobject: LOCATION | OBJECT | ITEM | CHARACTER ;
+namedobject: LOCATION | OBJECT | ITEM | CHARACTER | DIALOG ;
 
 object:
 	SCOPE VARNAME nullblock
@@ -37,6 +37,12 @@ object:
 		{ $$ = compiler.function(@2,$3,$5,$4,$1) } |
 	modifiers ON VARNAME body
 		{ $$ = compiler.functionEvent(@2,$3,$4,$1)} |
+	modifiers OPTION VARNAME string body
+		{ $$ = compiler.functionOption(@2,$3,$4,$5,$1)} |
+	modifiers OPTION VARNAME body
+		{ $$ = compiler.functionOption(@2,$3,null,$4,$1)} |
+	modifiers OPTION string body
+		{ $$ = compiler.functionOptionAnonymous(@2,$3,$4,$1)} |
 	modifiers NAMESPACE VARNAME nullblock
 		{ $$ = compiler.namespace(@2,$3,$2,$4,$1) } |
 	modifiers namedobject VARNAME string nullblock
@@ -79,7 +85,7 @@ modifiers:
 	/* empty */
 		{ $$ = [] };
 
-type: VARNAME | NAMESPACE | OBJECT | FUNCTION ;
+type: VARNAME | NAMESPACE | namedobject | FUNCTION | OPTION ;
 
 //------------------------------------------------------------
 
@@ -287,6 +293,8 @@ expression:
 command:
 	'{' safeexpr exprlist '}' exprlist
 		{ $$ = compiler.call(@1,compiler.callExpression(@1,$2,$3),$5) } |
+	'(' safeexpr expression ')' exprlist
+		{ $$ = compiler.call(@1, compiler.index(@1, $2, $3), $5) } |
 	VARNAME exprlist
 		{ $$ = compiler.call(@1,$1,$2) } |
 	CONTINUE

@@ -167,7 +167,7 @@ not
 	return yytext
 }
 
-on|if|in|for|elseif|else|while|function|local|scope|set|unset|return|break|continue|throw|namespace|extern|yield|import|from|object|location|item|character
+on|if|in|for|elseif|else|while|function|local|scope|set|unset|return|break|continue|throw|namespace|extern|yield|import|from|object|location|item|character|dialog|option
 	{ return yytext.toUpperCase() }
 
 true|false|undefined
@@ -182,7 +182,7 @@ true|false|undefined
 [0-9]*\.[0-9]+(?:[eE][-+]?[0-9]+)?
 	{ return 'FLOAT' }
 
-[0-9]+(?:[eE][-+]?[0-9]+)??
+[0-9]+(?:[eE][-+]?[0-9]+)?
 	{ return 'INTEGER' }
 
 0[Xx][0-9a-fA-F]+
