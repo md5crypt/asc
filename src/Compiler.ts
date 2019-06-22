@@ -505,7 +505,7 @@ export class Compiler{
 	function(tok:LexerLocation, name:string, body:number[], args?:Argument[], modifiers?:string[]){
 		return this.functionGeneral(tok, name, Type.FUNCTION, body, args, modifiers)
 	}
-	namespace(tok:LexerLocation, name:string, typeName: string, body?:number[], modifiers?:string[], text?:number[]){
+	namespace(tok:LexerLocation, name:string, typeName: string, optBody?:number[], modifiers?:string[], text?:number[]){
 		const type = namespaceTypes.get(typeName)
 		if (type === undefined) {
 			throw new Error(`invalid type name: ${typeName}`)
@@ -515,7 +515,7 @@ export class Compiler{
 		if (modifiers && modifiers.length > 0) {
 			out.push(...this.applyModifiers(tok, modifiers, id, type))
 		}
-		body = body || []
+		const body = optBody || []
 		if (text) {
 			body.push(...this.set(tok, 'self.name', text))
 		}
