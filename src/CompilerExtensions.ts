@@ -40,6 +40,12 @@ Compiler.registerExtension('_yield',false,(tok,args)=>{
 	return [OpCode.o2(Op.YIELD)]
 })
 
+Compiler.registerExtension('nop',false,(tok,args)=>{
+	if(args.length != 1)
+		throw new CompilerError(tok,`build-in function 'nop' called with ${args.length} argument(s)`)
+	return [...args[0], OpCode.o2(Op.DEALLOC,1)]
+})
+
 Compiler.registerExtension('async',true,(tok,args)=>{
 	if(args.length == 0)
 		throw new CompilerError(tok,`build-in function 'async' called with ${args.length} argument(s)`)
